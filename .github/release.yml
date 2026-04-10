@@ -1,0 +1,28 @@
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+  categories:
+    - title: 🚀 Features
+      labels:
+        - enhancement
+        - feature
+    - title: 🐛 Fixes
+      labels:
+        - bug
+        - fix
+    - title: 🧠 RAG / Knowledge Base
+      labels:
+        - rag
+        - knowledge-base
+    - title: 🎨 UI / UX / Docs
+      labels:
+        - documentation
+        - ui
+        - ux
+    - title: ⚙️ CI / Repo / Maintenance
+      labels:
+        - ci
+        - chore
+        - release
+    - title: Other Changes

@@ -172,6 +172,10 @@ Copy-Item .\backend\.env.example .\backend\.env
 - `LICENSE`：采用 MIT License
 - `CONTRIBUTING.md`：补充协作规范
 - `SECURITY.md`：补充安全披露流程
+- `.github/workflows/ci.yml`：补充 GitHub Actions 持续集成
+- `.github/ISSUE_TEMPLATE/`：补充 Issue 表单模板
+- `.github/pull_request_template.md`：补充 PR 检查清单
+- `CHANGELOG.md`：补充版本说明与发布记录
 - GitHub 仓库已设置公开描述与主题标签
 
 ## 后续可扩展方向

@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-tests:
+    name: Backend Tests
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: backend
+    env:
+      APP_ENV: test
+      POSTGRES_URL: sqlite:///./ci_test.db
+      QDRANT_URL: ""
+      QA_BASE_URL: ""
+      QA_API_KEY: ""
+      QA_MODEL: ""
+      RERANK_PROVIDER: none
+      RERANK_BASE_URL: ""
+      RERANK_API_KEY: ""
+      RERANK_MODEL: ""
+      EMBEDDING_PROVIDER: local_stub
+      EMBEDDING_BASE_URL: ""
+      EMBEDDING_API_KEY: ""
+      EMBEDDING_MODEL: BAAI/bge-m3
+      WECHAT_MOCK_ENABLED: true
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: admin123456
+      JWT_SECRET: ci-only-jwt-secret
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
+
+      - name: Run backend pytest suite
+        run: python -m pytest -q
+
+      - name: Run backend smoke test
+        run: python .\scripts\smoke_test.py

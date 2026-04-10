@@ -1,0 +1,74 @@
+name: Feature 请求
+description: 提交一个功能建议或改进方向
+title: "[Feature] "
+labels:
+  - enhancement
+  - triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请尽量描述业务目标和使用场景，而不只是提出一个零碎按钮或字段。
+
+  - type: input
+    id: summary
+    attributes:
+      label: 功能名称
+      placeholder: 例如：管理后台增加文档批量删除
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 当前问题
+      description: 你想解决什么问题
+      placeholder: 例如：知识库文档多时只能逐条删除，运营效率低
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议方案
+      description: 描述你期望的实现方式或交互流程
+      placeholder: 例如：在文档列表支持多选、批量删除和二次确认
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: 相关模块
+      options:
+        - Web 用户端
+        - 后端 API
+        - 管理后台 Studio
+        - 微信小程序
+        - RAG / 知识库链路
+        - 开发体验 / GitHub / CI
+    validations:
+      required: true
+
+  - type: textarea
+    id: value
+    attributes:
+      label: 业务价值
+      description: 为什么值得做
+      placeholder: 例如：减少后台重复操作，降低运营维护成本
+    validations:
+      required: true
+
+  - type: textarea
+    id: reference
+    attributes:
+      label: 参考资料
+      description: 可选，附上链接、截图、竞品或草图
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已经确认该建议不包含敏感信息或私有部署资料
+          required: true
