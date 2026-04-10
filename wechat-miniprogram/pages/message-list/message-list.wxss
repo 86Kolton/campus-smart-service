@@ -1,0 +1,32 @@
+.message-row {
+  margin-top: 14rpx;
+  padding: 20rpx;
+  border-radius: 26rpx;
+  border: 1rpx solid rgba(205, 217, 233, 0.98);
+  background: linear-gradient(180deg, rgba(252, 253, 255, 0.98), rgba(246, 250, 255, 0.92));
+}
+
+.message-row + .message-row {
+  margin-top: 12rpx;
+}
+
+.message-main {
+  font-size: 29rpx;
+  line-height: 1.58;
+  font-weight: 800;
+  color: var(--ink-950);
+}
+
+.message-meta {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  line-height: 1.54;
+  color: var(--ink-700);
+}
+
+.message-link {
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--brand-primary);
+}

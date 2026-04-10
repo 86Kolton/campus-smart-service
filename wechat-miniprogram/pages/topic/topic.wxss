@@ -1,0 +1,158 @@
+.topic-hero-card {
+  display: grid;
+  gap: 14rpx;
+}
+
+.topic-hero-head {
+  display: block;
+}
+
+.topic-head-copy {
+  min-width: 0;
+}
+
+.topic-hero-copy {
+  font-size: 24rpx;
+  line-height: 1.65;
+  color: #4e6783;
+}
+
+.topic-hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  flex-wrap: wrap;
+}
+
+.topic-page-note {
+  flex: 1;
+  min-width: 280rpx;
+  font-size: 21rpx;
+  line-height: 1.5;
+  color: #6f85a0;
+}
+
+.topic-compose-btn {
+  flex: 0 0 auto;
+  min-width: 232rpx;
+  margin-top: 0;
+}
+
+.subpage-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.chip.is-active {
+  border-color: rgba(165, 192, 220, 0.98);
+  background: rgba(231, 240, 251, 0.98);
+  color: var(--brand-primary);
+  font-weight: 800;
+}
+
+.topic-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.topic-section-title {
+  font-size: 34rpx;
+}
+
+.sort-switch {
+  display: flex;
+  gap: 10rpx;
+}
+
+.btn-pill.active {
+  color: #1f4d7f;
+  background: rgba(231, 240, 251, 0.98);
+  border-color: rgba(165, 192, 220, 0.98);
+}
+
+.topic-post {
+  margin-top: 14rpx;
+  padding: 18rpx;
+  border: 1rpx solid #dce6f2;
+  border-radius: 22rpx;
+  background: linear-gradient(180deg, #fbfdff, #f6faff);
+}
+
+.topic-post + .topic-post {
+  margin-top: 12rpx;
+}
+
+.topic-post-title {
+  font-size: 30rpx;
+  line-height: 1.4;
+  font-weight: 700;
+  color: #1d3958;
+}
+
+.topic-post-snippet {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  line-height: 1.64;
+  color: #536c87;
+}
+
+.topic-post-meta {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #7388a0;
+}
+
+.topic-post-link {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: #244f83;
+  font-weight: 700;
+}
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.topic-pager {
+  margin-top: 24rpx;
+}
+
+.pager-btn {
+  min-width: 162rpx;
+}
+
+.pager-center {
+  min-width: 164rpx;
+  text-align: center;
+  font-size: 23rpx;
+  color: #6f85a0;
+}
+
+@media (max-width: 640rpx) {
+  .topic-toolbar,
+  .pager {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .topic-hero-actions {
+    align-items: stretch;
+  }
+
+  .topic-compose-btn,
+  .pager-btn {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .pager-center {
+    min-width: 0;
+  }
+}

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>管理员登录</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./studio.css?v=20260409-2" />
+</head>
+<body data-page="login">
+  <div class="scene-backdrop"></div>
+  <div class="scene-orb orb-a"></div>
+  <div class="scene-orb orb-b"></div>
+
+  <main class="login-shell">
+    <section class="login-story">
+      <p class="brand-kicker">Hebei University</p>
+      <h1>校园知识后台登录</h1>
+      <p class="login-copy">把登录入口和工作台拆开，避免未登录状态下仍然看到复杂操作区。登录后再进入知识库、任务、QA 验证和自进化工作面。</p>
+      <div class="login-feature-list">
+        <div class="login-feature login-feature-highlight">
+          <strong>失败限流</strong>
+          <span id="guardSummary">连续失败会触发临时锁定。</span>
+          <small id="guardDetail">正在读取当前登录保护策略...</small>
+        </div>
+      </div>
+    </section>
+
+    <section class="login-panel">
+      <div class="login-panel-head">
+        <p class="screen-kicker">Secure Access</p>
+        <h2>登录后台</h2>
+        <p>请输入管理员账号与密码。</p>
+      </div>
+
+      <div class="form-grid one-col">
+        <label>
+          账号
+          <input id="adminUsername" type="text" placeholder="请输入后台账号" autocomplete="username" />
+        </label>
+        <label>
+          密码
+          <div class="password-wrap">
+            <input id="adminPassword" type="password" placeholder="请输入后台密码" autocomplete="current-password" />
+            <button id="togglePassword" class="field-toggle" type="button" aria-label="显示密码">显示</button>
+          </div>
+        </label>
+      </div>
+
+      <div class="login-actions">
+        <button id="btnLogin" class="btn" type="button">进入工作台</button>
+        <div class="login-state-box">
+          <p id="authState" class="hint">未登录</p>
+          <p id="guardHint" class="hint guard-hint">登录保护策略加载中...</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="./login.js?v=20260409-2"></script>
+</body>
+</html>

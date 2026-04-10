@@ -1,0 +1,22 @@
+<view class="page-wrap page-wrap-sub">
+  <view class="surface-card">
+    <view class="subpage-head">
+      <view class="subpage-brow">{{config.brow}}</view>
+      <view class="subpage-title">{{config.title}}</view>
+      <view class="subpage-sub">{{config.subtitle}}</view>
+    </view>
+  </view>
+
+  <view class="surface-card">
+    <view wx:if="{{loading}}" class="empty">正在加载消息...</view>
+    <view wx:if="{{error}}" class="empty">{{error}}</view>
+
+    <view wx:for="{{items}}" wx:key="id" class="message-row" data-id="{{item.post_id}}" data-post-id="{{item.post_id}}" data-title="{{item.main}}" bindtap="openPost">
+      <view class="message-main">{{item.main}}</view>
+      <view class="message-meta">{{item.meta}}</view>
+      <view class="message-link">进入原帖</view>
+    </view>
+
+    <view wx:if="{{!loading && !error && !items.length}}" class="empty">当前消息为空</view>
+  </view>
+</view>

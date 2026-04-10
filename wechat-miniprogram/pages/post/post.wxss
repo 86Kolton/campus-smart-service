@@ -1,0 +1,262 @@
+.compose-stack,
+.compose-card,
+.detail-card,
+.comment-card,
+.composer-card {
+  display: grid;
+  gap: 18rpx;
+}
+
+.hero-card {
+  background: linear-gradient(145deg, rgba(249, 252, 255, 0.98), rgba(237, 245, 255, 0.94));
+}
+
+.compose-hint {
+  margin-top: 8rpx;
+  padding: 14rpx 16rpx;
+  border-radius: 20rpx;
+  border: 1rpx solid rgba(207, 221, 239, 0.98);
+  background: rgba(240, 246, 255, 0.96);
+  color: var(--ink-700);
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.field-stack {
+  display: grid;
+  gap: 12rpx;
+}
+
+.field-label {
+  font-size: 26rpx;
+  font-weight: 800;
+  color: var(--ink-950);
+}
+
+.category-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.category-chip {
+  min-height: 64rpx;
+  padding: 0 24rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid rgba(204, 216, 233, 0.98);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink-700);
+  font-size: 24rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.category-chip.is-active {
+  border-color: rgba(165, 192, 220, 0.98);
+  background: rgba(231, 240, 251, 0.98);
+  color: var(--brand-primary);
+  font-weight: 800;
+}
+
+.editor {
+  min-height: 260rpx;
+}
+
+.upload-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.tool-btn {
+  min-width: 220rpx;
+}
+
+.upload-preview,
+.detail-image,
+.comment-image {
+  width: 100%;
+  border-radius: 26rpx;
+  border: 1rpx solid rgba(212, 225, 240, 0.98);
+}
+
+.submit-btn {
+  width: 100%;
+}
+
+.detail-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16rpx;
+  flex-wrap: wrap;
+}
+
+.detail-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 46rpx;
+  padding: 0 18rpx;
+  border-radius: 999rpx;
+  background: rgba(227, 244, 239, 0.98);
+  color: #23695e;
+  font-size: 22rpx;
+  font-weight: 700;
+}
+
+.detail-delete-btn {
+  min-height: 56rpx;
+  padding: 0 18rpx;
+}
+
+.detail-title {
+  font-size: 44rpx;
+  line-height: 1.26;
+  font-weight: 800;
+  color: var(--ink-950);
+}
+
+.detail-meta {
+  font-size: 23rpx;
+  color: var(--ink-500);
+}
+
+.detail-content {
+  font-size: 28rpx;
+  line-height: 1.74;
+  color: var(--ink-800);
+}
+
+.detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.detail-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12rpx;
+}
+
+.detail-action-btn {
+  width: 100%;
+}
+
+.detail-action-btn.is-on {
+  background: rgba(227, 245, 238, 0.98);
+  color: #166b4a;
+}
+
+.detail-tag {
+  min-height: 44rpx;
+  padding: 0 16rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid rgba(204, 216, 233, 0.98);
+  background: rgba(239, 246, 255, 0.96);
+  color: var(--ink-800);
+  font-size: 22rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.comment-headline {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+
+.detail-section-title {
+  font-size: 36rpx;
+}
+
+.comment-count {
+  min-height: 52rpx;
+  padding: 0 18rpx;
+  border-radius: 999rpx;
+  background: rgba(236, 244, 252, 0.98);
+  color: var(--ink-800);
+  font-size: 22rpx;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.comment-empty {
+  padding: 18rpx 0 6rpx;
+  text-align: center;
+  color: var(--ink-500);
+  font-size: 25rpx;
+}
+
+.comment-list {
+  display: grid;
+  gap: 16rpx;
+}
+
+.comment-item {
+  padding-top: 18rpx;
+  border-top: 1rpx solid rgba(228, 236, 245, 0.96);
+  display: grid;
+  gap: 10rpx;
+}
+
+.comment-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.comment-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12rpx;
+  align-items: center;
+}
+
+.comment-author {
+  font-size: 25rpx;
+  font-weight: 800;
+  color: var(--ink-950);
+}
+
+.comment-time {
+  font-size: 22rpx;
+  color: var(--ink-500);
+}
+
+.comment-reply {
+  font-size: 22rpx;
+  color: var(--ink-700);
+}
+
+.comment-content {
+  font-size: 26rpx;
+  line-height: 1.68;
+  color: var(--ink-800);
+}
+
+.comment-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12rpx;
+  flex-wrap: wrap;
+}
+
+.comment-like,
+.comment-delete {
+  min-width: 136rpx;
+}
+
+.comment-like.is-on {
+  background: rgba(227, 245, 238, 0.98);
+  color: #166b4a;
+}
+
+.comment-input {
+  min-height: 190rpx;
+}

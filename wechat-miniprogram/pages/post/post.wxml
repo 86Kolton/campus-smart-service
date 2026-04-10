@@ -1,0 +1,113 @@
+<view class="page-wrap page-wrap-sub">
+  <view wx:if="{{mode === 'compose'}}" class="compose-stack">
+    <view class="surface-card hero-card">
+      <view class="section-title">发布帖子</view>
+      <view class="section-sub">像网页端一样发布一条完整校园帖，把时间、地点、真实体验和结论写清楚。</view>
+      <view wx:if="{{draftHint}}" class="compose-hint">{{draftHint}}</view>
+    </view>
+
+    <view class="surface-card compose-card">
+      <view class="field-stack">
+        <view class="field-label">帖子分类</view>
+        <view class="category-row">
+          <view wx:for="{{categoryOptions}}" wx:key="id" class="category-chip {{draftCategory === item.id ? 'is-active' : ''}}" data-category="{{item.id}}" bindtap="onSelectCategory">{{item.label}}</view>
+        </view>
+      </view>
+
+      <view class="field-stack">
+        <view class="field-label">帖子标题</view>
+        <input class="input" value="{{draftTitle}}" maxlength="120" placeholder="例如：A1-307 晚上 8 点后还有空位吗？" bindinput="onInputDraftTitle" />
+      </view>
+
+      <view class="field-stack">
+        <view class="field-label">正文内容</view>
+        <textarea class="editor" value="{{draftContent}}" maxlength="2000" auto-height="true" placeholder="把时间、地点、真实体验和结论写完整，其他同学才能直接用。" bindinput="onInputDraftContent" />
+      </view>
+
+      <view class="field-stack">
+        <view class="field-label">标签</view>
+        <input class="input" value="{{draftTags}}" maxlength="80" placeholder="例如：自习室, 夜间学习, 空位反馈" bindinput="onInputDraftTags" />
+      </view>
+
+      <view class="field-stack">
+        <view class="field-label">图片补充</view>
+        <view class="upload-toolbar">
+          <button class="btn-ghost tool-btn" bindtap="chooseDraftImage">上传图片（不超过 1MB）</button>
+          <button wx:if="{{draftImagePath}}" class="btn-ghost tool-btn" bindtap="removeDraftImage">移除图片</button>
+        </view>
+        <image wx:if="{{draftImagePath}}" class="upload-preview" src="{{draftImagePath}}" mode="aspectFill" bindtap="previewImage" data-url="{{draftImagePath}}" />
+      </view>
+
+      <button class="btn-primary submit-btn" bindtap="submitPost" loading="{{postSubmitting}}" disabled="{{postSubmitting}}">发布帖子</button>
+    </view>
+  </view>
+
+  <block wx:else>
+    <view wx:if="{{post}}" class="surface-card detail-card">
+      <view class="detail-top">
+        <view class="detail-chip">{{post.categoryLabel}}</view>
+        <button wx:if="{{post.can_delete}}" class="btn-ghost detail-delete-btn" size="mini" bindtap="deletePost" loading="{{postDeleting}}" disabled="{{postDeleting}}">删除原帖</button>
+      </view>
+      <view class="detail-title">{{post.title}}</view>
+      <view class="detail-meta">{{post.author}} · {{post.time}}</view>
+      <view class="detail-content">{{post.content}}</view>
+      <image wx:if="{{post.image_url_full}}" class="detail-image" src="{{post.image_url_full}}" mode="widthFix" bindtap="previewImage" data-url="{{post.image_url_full}}" />
+      <view wx:if="{{post.tags && post.tags.length}}" class="detail-tags">
+        <text wx:for="{{post.tags}}" wx:key="*this" class="detail-tag">{{item}}</text>
+      </view>
+      <view class="detail-actions">
+        <button class="btn-ghost detail-action-btn {{post.liked ? 'is-on' : ''}}" bindtap="togglePostLike" loading="{{postLiking}}" disabled="{{postLiking}}">{{post.liked ? '已点赞' : '点赞'}} {{post.likes}}</button>
+        <button class="btn-ghost detail-action-btn {{post.saved ? 'is-on' : ''}}" bindtap="toggleSave" loading="{{postSaving}}" disabled="{{postSaving}}">{{post.saved ? '已收藏' : '收藏'}}</button>
+      </view>
+    </view>
+
+    <view class="surface-card comment-card">
+      <view class="comment-headline">
+        <view>
+          <view class="section-title detail-section-title">评论区</view>
+          <view class="section-caption">补充时间、地点和经验，后来的同学才看得懂。</view>
+        </view>
+        <view class="comment-count">{{comments.length}} 条</view>
+      </view>
+
+      <view wx:if="{{comments.length === 0}}" class="comment-empty">还没有评论，欢迎第一个补充信息。</view>
+
+      <view class="comment-list">
+        <view wx:for="{{comments}}" wx:key="id" class="comment-item">
+          <view class="comment-head">
+            <text class="comment-author">{{item.author}}</text>
+            <text class="comment-time">{{item.time}}</text>
+          </view>
+          <view wx:if="{{item.reply_to_author}}" class="comment-reply">回复 {{item.reply_to_author}}</view>
+          <view wx:if="{{item.content}}" class="comment-content">{{item.content}}</view>
+          <image wx:if="{{item.image_url_full}}" class="comment-image" src="{{item.image_url_full}}" mode="widthFix" bindtap="previewImage" data-url="{{item.image_url_full}}" />
+          <view class="comment-actions">
+            <button
+              class="btn-ghost comment-like {{item.liked ? 'is-on' : ''}}"
+              size="mini"
+              data-comment-id="{{item.id}}"
+              bindtap="toggleCommentLike"
+              loading="{{commentBusyId === item.id}}"
+              disabled="{{commentBusyId === item.id}}"
+            >{{item.liked ? '已赞' : '点赞'}} {{item.likes}}</button>
+            <button wx:if="{{item.can_delete}}" class="btn-ghost comment-delete" size="mini" data-comment-id="{{item.id}}" bindtap="deleteComment">删除</button>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="surface-card composer-card">
+      <view class="section-title detail-section-title">发表评论</view>
+      <textarea class="comment-input" value="{{commentInput}}" maxlength="200" auto-height="true" placeholder="说点什么，例如补充时间、地点或排队情况。" bindinput="onInputComment" />
+      <view class="upload-toolbar">
+        <button class="btn-ghost tool-btn" bindtap="chooseCommentImage">上传图片</button>
+        <button wx:if="{{commentImagePath}}" class="btn-ghost tool-btn" bindtap="removeCommentImage">移除图片</button>
+      </view>
+      <image wx:if="{{commentImagePath}}" class="upload-preview" src="{{commentImagePath}}" mode="aspectFill" bindtap="previewImage" data-url="{{commentImagePath}}" />
+      <button class="btn-primary submit-btn" bindtap="sendComment" loading="{{commentSubmitting}}" disabled="{{commentSubmitting}}">发送评论</button>
+    </view>
+  </block>
+
+  <view wx:if="{{loading}}" class="surface-card empty">加载中...</view>
+  <view wx:if="{{error}}" class="surface-card empty">{{error}}</view>
+</view>

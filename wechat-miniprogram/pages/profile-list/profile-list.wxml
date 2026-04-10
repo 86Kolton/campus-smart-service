@@ -1,0 +1,47 @@
+<view class="page-wrap page-wrap-sub">
+  <view class="surface-card profile-list-hero">
+    <view class="subpage-head">
+      <view class="subpage-brow">{{config.brow}}</view>
+      <view class="subpage-title">{{config.title}}</view>
+      <view class="subpage-sub">{{config.subtitle}}</view>
+    </view>
+
+    <view class="subpage-stat-grid">
+      <view class="subpage-stat-card">
+        <view class="subpage-stat-label">当前模式</view>
+        <view class="subpage-stat-value">{{config.title}}</view>
+      </view>
+      <view class="subpage-stat-card">
+        <view class="subpage-stat-label">记录数量</view>
+        <view class="subpage-stat-value">{{items.length}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="surface-card empty">正在加载列表...</view>
+
+  <view wx:if="{{error}}" class="surface-card error-stack">
+    <view class="empty">{{error}}</view>
+    <button class="btn-ghost retry-btn" bindtap="retry">重新加载</button>
+  </view>
+
+  <view wx:if="{{!loading && !error && items.length}}" class="profile-list-stack">
+    <view wx:for="{{items}}" wx:key="id" class="surface-card profile-post-row" data-id="{{item.id}}" data-title="{{item.title}}" data-source-type="{{item.source_type}}" bindtap="openPost">
+      <view class="profile-post-head">
+        <view class="profile-post-title">{{item.title}}</view>
+        <view class="profile-post-arrow"></view>
+      </view>
+      <view class="profile-post-content">{{item.content}}</view>
+      <view wx:if="{{item.locationText}}" class="profile-post-location">{{item.locationText}}</view>
+      <view class="profile-post-footer">
+        <view class="profile-post-meta">{{item.metaLine}}</view>
+        <view class="profile-post-action">{{item.actionText}}</view>
+      </view>
+      <view wx:if="{{item.tags && item.tags.length}}" class="profile-post-tags">
+        <text wx:for="{{item.tags}}" wx:key="*this" class="profile-post-tag">{{item}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{!loading && !error && !items.length}}" class="surface-card empty">{{config.emptyText}}</view>
+</view>

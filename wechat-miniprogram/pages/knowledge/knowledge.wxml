@@ -1,0 +1,111 @@
+<view class="page-shell knowledge-page">
+  <view class="global-head">
+    <view class="assistant-mini">校园助手</view>
+    <view class="online-pill">在线服务</view>
+  </view>
+
+  <view class="hero-copy knowledge-hero">
+    <view class="hello-title">你好，{{greetingName}}</view>
+    <view class="hello-sub">{{greetingDate}}</view>
+    <view class="knowledge-banner">校园知识库 · 可追溯来源 · 中文回答</view>
+  </view>
+
+  <view class="surface-card knowledge-stage">
+    <view class="chat-head">
+      <view class="chat-title">知识对话</view>
+      <view class="chat-status {{deepThinking ? 'chat-status-active' : ''}}">{{deepThinking ? '深度探索' : '快速回答'}}</view>
+    </view>
+
+    <scroll-view
+      class="chat-board chat-board-scroll"
+      scroll-y="true"
+      scroll-with-animation="true"
+      scroll-into-view="{{scrollTarget}}"
+    >
+      <block wx:for="{{messages}}" wx:key="id" wx:for-index="messageIndex">
+        <view id="{{item.id}}" class="msg-row {{item.role === 'user' ? 'msg-row-user' : 'msg-row-assistant'}}">
+          <view class="msg-shell {{item.role === 'user' ? 'msg-shell-user' : 'msg-shell-assistant'}}">
+            <view class="msg-meta {{item.role === 'user' ? 'msg-meta-user' : 'msg-meta-assistant'}}">{{item.role === 'user' ? '你' : '校园助手'}}</view>
+            <view class="msg {{item.role === 'user' ? 'msg-user' : 'msg-assistant'}}">
+              <view class="msg-text">{{item.text}}</view>
+
+              <view wx:if="{{item.role === 'assistant' && item.detailCount}}" class="qa-detail-wrap">
+                <button
+                  class="btn-ghost detail-toggle"
+                  size="mini"
+                  bindtap="onToggleDetail"
+                  data-index="{{messageIndex}}"
+                >
+                  {{item.collapsedDetailLabel}}
+                </button>
+              </view>
+            </view>
+          </view>
+        </view>
+      </block>
+
+      <view wx:if="{{!hasConversation}}" class="chat-board-empty"></view>
+    </scroll-view>
+
+    <view class="composer-shell">
+      <view class="composer-toolbar">
+        <label class="deep-pill {{deepThinking ? 'deep-pill-on' : ''}}">
+          <switch checked="{{deepThinking}}" bindchange="onSwitchDeep" />
+          <view class="deep-copy">
+            <text class="deep-title">深度探索</text>
+          </view>
+        </label>
+      </view>
+
+      <textarea
+        class="ask-input"
+        value="{{input}}"
+        placeholder="向校园知识库提问..."
+        maxlength="300"
+        auto-height="false"
+        cursor-spacing="36"
+        bindinput="onInputChange"
+      />
+
+      <view class="composer-foot">
+        <button class="btn-primary ask-btn" bindtap="onSend" loading="{{sending}}" disabled="{{sending}}">发送提问</button>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{activeDetail.visible}}" class="detail-sheet-mask" bindtap="onCloseDetail">
+    <view class="detail-sheet" catchtap="noop" catchtouchmove="noop">
+      <view class="detail-sheet-head">
+        <view class="detail-sheet-copy">
+          <view class="detail-sheet-kicker">主要来源</view>
+          <view class="detail-sheet-title">{{activeDetail.title}}</view>
+        </view>
+        <button class="btn-ghost detail-sheet-close" size="mini" bindtap="onCloseDetail">关闭</button>
+      </view>
+
+      <scroll-view class="detail-sheet-scroll" scroll-y="true" enable-flex="true">
+        <view class="detail-panel">
+          <block wx:for="{{activeDetail.items}}" wx:key="id" wx:for-item="citation">
+            <view class="detail-item">
+              <view class="detail-title">{{citation.order}}. {{citation.title}}</view>
+              <view wx:if="{{citation.snippet}}" class="detail-snippet">{{citation.snippet}}</view>
+              <view class="detail-footer">
+                <view class="detail-meta">{{citation.metaText}}</view>
+                <button
+                  class="btn-ghost detail-link"
+                  size="mini"
+                  bindtap="onTapSource"
+                  data-id="{{citation.id}}"
+                  data-jump="{{citation.jump_url}}"
+                  data-source-type="{{citation.source_type}}"
+                >
+                  {{citation.linkLabel}}
+                </button>
+              </view>
+            </view>
+          </block>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+</view>

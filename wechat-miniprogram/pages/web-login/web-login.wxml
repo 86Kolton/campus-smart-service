@@ -1,0 +1,52 @@
+<view class="page-wrap page-wrap-sub">
+  <view class="card web-login-card">
+    <view class="section-kicker">账号互通</view>
+    <view class="section-title">网页互通登录</view>
+    <view class="section-sub">把小程序当前账号安全带到网页端，帖子、收藏、消息和知识对话都会继续共用同一身份。</view>
+
+    <view class="step-list">
+      <view class="step-item">
+        <view class="step-index">1</view>
+        <view class="step-copy">
+          <view class="step-title">网页端打开“账号互通”</view>
+          <view class="step-sub">进入网页端“我的”页，打开账号互通入口。</view>
+        </view>
+      </view>
+      <view class="step-item">
+        <view class="step-index">2</view>
+        <view class="step-copy">
+          <view class="step-title">复制一次性登录码</view>
+          <view class="step-sub">登录码 5 分钟内有效，且只能使用一次。</view>
+        </view>
+      </view>
+      <view class="step-item">
+        <view class="step-index">3</view>
+        <view class="step-copy">
+          <view class="step-title">粘贴后完成互通登录</view>
+          <view class="step-sub">登录成功后，网页端会直接进入与你现在相同的账号。</view>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{loading}}" class="empty">正在生成登录码...</view>
+    <view wx:if="{{error}}" class="empty">{{error}}</view>
+
+    <view wx:if="{{code}}" class="code-panel">
+      <view class="code-value">{{code}}</view>
+      <view class="code-meta">5 分钟内有效，仅可使用一次</view>
+      <view wx:if="{{expiresAt}}" class="code-meta">过期时间：{{expiresAt}}</view>
+    </view>
+
+    <view class="benefit-row">
+      <view class="benefit-chip">同账号</view>
+      <view class="benefit-chip">同收藏</view>
+      <view class="benefit-chip">同消息</view>
+      <view class="benefit-chip">同知识记录</view>
+    </view>
+
+    <view class="action-row">
+      <button class="btn-primary action-btn" bindtap="copyCode" disabled="{{!code}}">复制登录码</button>
+      <button class="btn-ghost action-btn" bindtap="generateCode" loading="{{loading}}">重新生成</button>
+    </view>
+  </view>
+</view>

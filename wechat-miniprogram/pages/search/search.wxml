@@ -1,0 +1,99 @@
+<view class="page-shell">
+  <view class="global-head">
+    <view class="assistant-mini">校园助手</view>
+    <view class="online-pill">实时联机</view>
+  </view>
+
+  <view class="hello-title">你好，{{greetingName}}</view>
+  <view class="hello-sub">{{greetingDate}}</view>
+
+  <view class="surface-card search-card">
+    <view class="section-title search-title">论坛帖子搜索</view>
+    <view class="section-sub search-sub">只搜索校园论坛原帖，不混入知识库问答结果。</view>
+    <view class="search-row">
+      <view class="search-field">
+        <input
+          class="input search-input"
+          value="{{query}}"
+          placeholder="例如：A1-307、自习室、课程评价"
+          placeholder-style="color:#93a5bb"
+          bindinput="onInputQuery"
+          confirm-type="search"
+          bindconfirm="handleSearchTap"
+        />
+      </view>
+      <button class="btn-primary search-btn" bindtap="handleSearchTap" loading="{{loading}}">搜索</button>
+    </view>
+  </view>
+
+  <view class="surface-card">
+    <view class="head-row">
+      <view>
+        <view class="section-title list-title">最近搜索</view>
+        <view class="section-caption">保留高频关键词，便于快速回查。</view>
+      </view>
+      <button class="text-btn clear-btn" size="mini" bindtap="clearRecents">清空</button>
+    </view>
+    <view class="chip-row recents-row">
+      <view wx:for="{{recents}}" wx:key="*this" class="chip recent-chip" data-keyword="{{item}}" bindtap="handleRecentTap">{{item}}</view>
+      <view wx:if="{{!recents.length}}" class="empty-inline">暂无搜索记录</view>
+    </view>
+  </view>
+
+  <view class="surface-card">
+    <view class="section-title list-title">分类频道</view>
+    <view class="section-caption">按场景进入更垂直的话题页。</view>
+    <view class="category-row">
+      <view wx:for="{{categories}}" wx:key="id" class="category-item" data-key="{{item.key}}" bindtap="onTapCategory">
+        <view class="category-icon category-icon-{{item.tone}}">{{item.glyph}}</view>
+        <view class="category-name">{{item.name}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="surface-card result-card">
+    <view class="result-head">
+      <view>
+        <view class="section-title list-title">匹配帖子</view>
+        <view class="section-caption">按热度或时间排序，直接进入原帖。</view>
+      </view>
+      <view class="result-meta">
+        <view class="sort-switch">
+          <button class="{{sort === 'hot' ? 'btn-pill active' : 'btn-pill'}}" size="mini" data-sort="hot" bindtap="onChangeSort">热度</button>
+          <button class="{{sort === 'latest' ? 'btn-pill active' : 'btn-pill'}}" size="mini" data-sort="latest" bindtap="onChangeSort">最新</button>
+        </view>
+        <text>{{total}} 条</text>
+      </view>
+    </view>
+
+    <view wx:if="{{error}}" class="empty">{{error}}</view>
+    <view wx:if="{{loading && !results.length}}" class="empty">搜索中...</view>
+
+    <view wx:for="{{results}}" wx:key="id" class="result-item" data-id="{{item.id}}" data-title="{{item.title}}" bindtap="openPost">
+      <view class="item-title">{{item.title}}</view>
+      <view class="item-content">{{item.snippet}}</view>
+      <view class="item-extra">{{item.meta}} · 点赞 {{item.likes}} · 评论 {{item.comments}}</view>
+    </view>
+
+    <view wx:if="{{!loading && !error && results.length === 0}}" class="empty">暂无匹配结果</view>
+    <view wx:if="{{!loading && !error && results.length === 0}}" class="section-sub">可尝试关键词：食堂、空教室、调课、校车。</view>
+
+    <view class="pager">
+      <button class="btn-ghost pager-btn" size="mini" bindtap="prevPage" disabled="{{page <= 1}}">上一页</button>
+      <view class="pager-center">第 {{page}} / {{pageCount}} 页</view>
+      <button class="btn-ghost pager-btn" size="mini" bindtap="nextPage" disabled="{{!hasMore}}">下一页</button>
+    </view>
+  </view>
+
+  <view class="surface-card rank-card">
+    <view class="section-title list-title">论坛 24 小时热文</view>
+    <view wx:for="{{rankHotPosts}}" wx:key="id" class="rank-row" data-keyword="{{item.keyword}}" data-post-id="{{item.postId}}" data-title="{{item.title}}" bindtap="onTapRankHot">
+      <view class="rank-index">{{index + 1}}</view>
+      <view class="rank-main">
+        <view class="rank-title">{{item.title}}</view>
+        <view class="rank-hint">点击直接进入原帖</view>
+      </view>
+      <view class="rank-heat">{{item.heat}}</view>
+    </view>
+  </view>
+</view>

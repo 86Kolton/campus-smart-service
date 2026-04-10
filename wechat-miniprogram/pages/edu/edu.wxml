@@ -1,0 +1,160 @@
+<view class="page-wrap page-wrap-sub edu-page">
+  <view class="surface-card edu-hero-card">
+    <view class="edu-hero-top">
+      <view class="edu-hero-copy">
+        <view class="subpage-brow">{{config.brow}}</view>
+        <view class="subpage-title">{{config.title}}</view>
+        <view class="subpage-sub">{{config.subtitle}}</view>
+      </view>
+      <button wx:if="{{action !== 'hall'}}" class="btn-pill edu-back-btn" size="mini" bindtap="goHall">大厅总览</button>
+    </view>
+
+    <view class="edu-identity-row">
+      <view class="edu-identity-copy">
+        <view class="edu-student-name">{{overview.student_name}}</view>
+        <view class="edu-student-meta">学号 {{overview.student_id}} · {{overview.term}}</view>
+      </view>
+      <view class="chip-row edu-hero-chips">
+        <view class="edu-hero-chip">受控会话</view>
+        <view class="edu-hero-chip">仅本人可见</view>
+        <view class="edu-hero-chip">不公开检索</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{summaryCards.length}}" class="surface-card">
+    <view class="subpage-stat-grid edu-stat-grid">
+      <view
+        wx:for="{{summaryCards}}"
+        wx:key="label"
+        class="subpage-stat-card edu-stat-card"
+        data-action="{{item.action}}"
+        bindtap="onTapStatCard"
+      >
+        <view class="subpage-stat-label">{{item.label}}</view>
+        <view class="subpage-stat-value">{{item.value}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{action === 'hall'}}" class="surface-card">
+    <view class="section-title edu-section-title">快捷入口</view>
+    <view class="section-caption">每个模块都可以直接点进去，先看状态，再进入对应详情。</view>
+    <view class="edu-module-grid">
+      <view
+        wx:for="{{hallModules}}"
+        wx:key="action"
+        class="edu-module-card"
+        data-action="{{item.action}}"
+        bindtap="onTapModule"
+      >
+        <view class="edu-module-top">
+          <view class="edu-module-icon">{{item.icon}}</view>
+          <view class="edu-module-badge">{{item.badge}}</view>
+        </view>
+        <view class="edu-module-title">{{item.title}}</view>
+        <view class="edu-module-copy">{{item.copy}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{action !== 'hall'}}" class="surface-card edu-filter-card">
+    <view class="section-title edu-section-title">查看筛选</view>
+    <view class="edu-picker-stack">
+      <view wx:if="{{action === 'grades'}}" class="edu-picker-row">
+        <view class="edu-picker-copy">
+          <view class="edu-picker-label">当前学期</view>
+          <view class="edu-picker-value">{{termDisplay}}</view>
+        </view>
+        <picker mode="selector" range="{{termOptions}}" range-key="label" value="{{termIndex}}" bindchange="onTermPickerChange">
+          <view class="edu-picker-trigger">选择学期</view>
+        </picker>
+      </view>
+
+      <view wx:if="{{action === 'schedule'}}" class="edu-picker-row">
+        <view class="edu-picker-copy">
+          <view class="edu-picker-label">当前周次</view>
+          <view class="edu-picker-value">{{weekDisplay}}</view>
+        </view>
+        <picker mode="selector" range="{{weekOptions}}" range-key="label" value="{{weekIndex}}" bindchange="onWeekPickerChange">
+          <view class="edu-picker-trigger">选择周次</view>
+        </picker>
+      </view>
+
+      <block wx:if="{{action === 'free'}}">
+        <view class="edu-picker-row">
+          <view class="edu-picker-copy">
+            <view class="edu-picker-label">当前校区</view>
+            <view class="edu-picker-value">{{campusDisplay}}</view>
+          </view>
+          <picker mode="selector" range="{{campusOptions}}" range-key="label" value="{{campusIndex}}" bindchange="onCampusPickerChange">
+            <view class="edu-picker-trigger">切换校区</view>
+          </picker>
+        </view>
+
+        <view class="edu-picker-row">
+          <view class="edu-picker-copy">
+            <view class="edu-picker-label">当前教学楼</view>
+            <view class="edu-picker-value">{{buildingDisplay}}</view>
+          </view>
+          <picker mode="selector" range="{{buildingOptions}}" range-key="label" value="{{buildingIndex}}" bindchange="onBuildingPickerChange">
+            <view class="edu-picker-trigger">选择教学楼</view>
+          </picker>
+        </view>
+      </block>
+    </view>
+
+    <view wx:if="{{action === 'free' && buildingPreviewCards.length}}" class="edu-building-preview">
+      <view class="section-caption">公共教学楼</view>
+      <view class="edu-building-preview-grid">
+        <view
+          wx:for="{{buildingPreviewCards}}"
+          wx:key="id"
+          class="edu-building-preview-card {{item.active ? 'is-active' : ''}}"
+          data-building="{{item.value}}"
+          bindtap="onTapBuildingCard"
+        >
+          <view class="edu-building-preview-head">
+            <view class="edu-building-preview-title">{{item.title}}</view>
+            <view class="edu-building-preview-badge">{{item.badge}}</view>
+          </view>
+          <view class="edu-building-preview-copy">{{item.copy}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{items.length}}" class="surface-card">
+    <view class="section-title edu-section-title">{{listTitle}}</view>
+    <view class="edu-detail-list">
+      <view wx:for="{{items}}" wx:key="id" class="edu-detail-card tone-{{item.tone}}">
+        <view class="edu-detail-head">
+          <view class="edu-detail-copy">
+            <view wx:if="{{item.eyebrow}}" class="edu-detail-brow">{{item.eyebrow}}</view>
+            <view class="edu-detail-title">{{item.title}}</view>
+            <view class="edu-detail-meta">{{item.meta}}</view>
+          </view>
+          <view wx:if="{{item.value}}" class="edu-detail-value">{{item.value}}</view>
+        </view>
+
+        <view wx:if="{{item.extra}}" class="edu-detail-extra">{{item.extra}}</view>
+
+        <view wx:if="{{item.hasProgress}}" class="edu-progress">
+          <view class="edu-progress-track">
+            <view class="edu-progress-fill" style="width: {{item.progress}}%;"></view>
+          </view>
+          <view class="edu-progress-label">空闲度 {{item.progress}}%</view>
+        </view>
+
+        <view wx:if="{{item.tags.length}}" class="chip-row edu-detail-chip-row">
+          <view wx:for="{{item.tags}}" wx:key="*this" wx:for-item="tag" class="chip edu-detail-chip">{{tag}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{!loading && !error && !items.length && action !== 'hall'}}" class="surface-card empty">{{emptyText}}</view>
+  <view wx:if="{{footerNote}}" class="surface-card edu-footer-note">{{footerNote}}</view>
+  <view wx:if="{{loading}}" class="surface-card empty">正在加载教务数据...</view>
+  <view wx:if="{{error}}" class="surface-card empty">{{error}}</view>
+</view>

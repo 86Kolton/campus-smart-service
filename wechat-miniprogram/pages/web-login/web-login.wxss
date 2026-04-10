@@ -1,0 +1,101 @@
+.web-login-card {
+  display: grid;
+  gap: 18rpx;
+}
+
+.step-list {
+  display: grid;
+  gap: 14rpx;
+}
+
+.step-item {
+  display: grid;
+  grid-template-columns: 48rpx minmax(0, 1fr);
+  gap: 14rpx;
+  padding: 20rpx 22rpx;
+  border-radius: 24rpx;
+  border: 1rpx solid rgba(205, 218, 234, 0.96);
+  background: rgba(248, 251, 255, 0.96);
+}
+
+.step-index {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 999rpx;
+  display: grid;
+  place-items: center;
+  font-size: 24rpx;
+  font-weight: 800;
+  color: var(--brand-primary);
+  background: rgba(231, 239, 252, 0.98);
+}
+
+.step-copy {
+  display: grid;
+  gap: 6rpx;
+}
+
+.step-title {
+  font-size: 28rpx;
+  font-weight: 800;
+  color: var(--ink-950);
+}
+
+.step-sub {
+  font-size: 24rpx;
+  line-height: 1.58;
+  color: var(--ink-700);
+}
+
+.code-panel {
+  display: grid;
+  gap: 10rpx;
+  padding: 26rpx 24rpx;
+  border-radius: 28rpx;
+  border: 1rpx solid rgba(203, 216, 233, 0.98);
+  background: linear-gradient(180deg, rgba(250, 252, 255, 0.98), rgba(240, 246, 255, 0.94));
+}
+
+.code-value {
+  font-size: 52rpx;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: 4rpx;
+  color: var(--ink-950);
+  text-align: center;
+}
+
+.code-meta {
+  font-size: 24rpx;
+  line-height: 1.56;
+  color: var(--ink-700);
+  text-align: center;
+}
+
+.benefit-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.benefit-chip {
+  min-height: 48rpx;
+  padding: 0 18rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid rgba(204, 218, 235, 0.98);
+  background: rgba(243, 248, 255, 0.94);
+  color: var(--ink-800);
+  font-size: 23rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-row {
+  display: grid;
+  gap: 12rpx;
+}
+
+.action-btn {
+  width: 100%;
+}

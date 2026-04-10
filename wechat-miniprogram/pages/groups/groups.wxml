@@ -1,0 +1,47 @@
+<view class="page-wrap page-wrap-sub">
+  <view class="surface-card">
+    <view class="subpage-head">
+      <view class="subpage-brow">校园集市 · 话题组</view>
+      <view class="subpage-title">跨校小组</view>
+      <view class="subpage-sub">聚合跨校讨论、组队协作和热点互助，不再跳回搜索页。</view>
+    </view>
+    <button class="btn-primary groups-compose-btn" bindtap="openComposer">发起新帖</button>
+  </view>
+
+  <view class="surface-card">
+    <view class="section-title groups-section-title">讨论组</view>
+    <view class="groups-grid">
+      <view wx:for="{{groups}}" wx:key="id" class="group-card" data-query="{{item.query}}" data-title="{{item.title}}" bindtap="onTapGroup">
+        <view class="group-card-title">{{item.title}}</view>
+        <view class="group-card-meta">{{item.members}} 人 · 在线 {{item.online}}</view>
+        <view class="subpage-chip-row">
+          <view wx:for="{{item.tags}}" wx:key="*this" class="chip">{{item}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="surface-card">
+    <view class="section-title groups-section-title">热议话题</view>
+    <view wx:for="{{topics}}" wx:key="id" class="topic-entry" data-query="{{item.query}}" data-title="{{item.title}}" bindtap="onTapTopic">
+      <view class="topic-entry-main">
+        <view class="topic-entry-title">{{item.title}}</view>
+        <view class="topic-entry-meta">{{item.meta}}</view>
+      </view>
+      <view class="topic-entry-heat">{{item.heat}}</view>
+    </view>
+  </view>
+
+  <view class="surface-card">
+    <view class="section-title groups-section-title">{{activeLabel}} · 匹配帖子</view>
+    <view wx:if="{{loading}}" class="empty">正在加载相关帖子...</view>
+    <view wx:if="{{error}}" class="empty">{{error}}</view>
+    <view wx:for="{{posts}}" wx:key="id" class="group-post" data-id="{{item.id}}" data-title="{{item.title}}" bindtap="openPost">
+      <view class="group-post-title">{{item.title}}</view>
+      <view class="group-post-snippet">{{item.snippet}}</view>
+      <view class="group-post-meta">{{item.meta}} · 点赞 {{item.likes}} · 评论 {{item.comments}}</view>
+      <view class="group-post-link">进入原帖</view>
+    </view>
+    <view wx:if="{{!loading && !error && !posts.length}}" class="empty">当前话题下暂无帖子</view>
+  </view>
+</view>

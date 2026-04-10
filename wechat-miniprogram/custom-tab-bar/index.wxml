@@ -1,0 +1,33 @@
+<view class="tabbar-wrap">
+  <view class="tabbar-shell">
+    <view
+      wx:for="{{list}}"
+      wx:key="pagePath"
+      class="tab-item {{selected === index ? 'is-active' : ''}}"
+      data-index="{{index}}"
+      data-path="{{item.pagePath}}"
+      bindtap="onSwitch"
+    >
+      <view class="icon-shell">
+        <view wx:if="{{item.key === 'home'}}" class="icon-home">
+          <view class="home-roof"></view>
+          <view class="home-body"></view>
+        </view>
+        <view wx:elif="{{item.key === 'search'}}" class="icon-search">
+          <view class="search-ring"></view>
+          <view class="search-handle"></view>
+        </view>
+        <view wx:elif="{{item.key === 'knowledge'}}" class="icon-knowledge">
+          <view class="knowledge-box"></view>
+          <view class="knowledge-tail"></view>
+        </view>
+        <view wx:else class="icon-profile">
+          <view class="profile-head"></view>
+          <view class="profile-body"></view>
+        </view>
+        <view wx:if="{{item.key === 'profile' && profileDot}}" class="profile-dot"></view>
+      </view>
+      <text class="tab-label">{{item.text}}</text>
+    </view>
+  </view>
+</view>

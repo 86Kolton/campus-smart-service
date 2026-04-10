@@ -1,0 +1,52 @@
+<view class="page-wrap page-wrap-sub">
+  <view class="surface-card hero-card">
+    <view class="subpage-brow">校园集市 · 发布需求</view>
+    <view class="subpage-title">发布跑腿需求</view>
+    <view class="subpage-sub">独立发布页，按网页端结构拆成任务信息、取货点、送达点和联系信息。</view>
+  </view>
+
+  <view class="surface-card compose-card">
+    <view class="type-row">
+      <view wx:for="{{typeOptions}}" wx:key="id" class="type-chip {{form.taskType === item.id ? 'is-active' : ''}}" data-type="{{item.id}}" bindtap="onSelectType">{{item.label}}</view>
+    </view>
+
+    <view class="field-stack">
+      <view class="field-label">任务标题</view>
+      <input class="input" value="{{form.title}}" data-field="title" bindinput="onInputField" maxlength="80" placeholder="例如：帮我去南门驿站取快递" />
+    </view>
+
+    <view class="field-grid">
+      <view class="field-stack">
+        <view class="field-label">奖励金额</view>
+        <input class="input" value="{{form.reward}}" data-field="reward" bindinput="onInputField" maxlength="10" placeholder="例如：5" />
+      </view>
+      <view class="field-stack">
+        <view class="field-label">预计时效</view>
+        <input class="input" value="{{form.time}}" data-field="time" bindinput="onInputField" maxlength="30" placeholder="例如：20 分钟内" />
+      </view>
+    </view>
+
+    <view class="field-stack">
+      <view class="field-label">取货点</view>
+      <input class="input" value="{{form.pickupLocation}}" data-field="pickupLocation" bindinput="onInputField" maxlength="60" placeholder="例如：南门驿站 / 北食堂骑手点" />
+    </view>
+
+    <view class="field-stack">
+      <view class="field-label">送达点</view>
+      <input class="input" value="{{form.destination}}" data-field="destination" bindinput="onInputField" maxlength="60" placeholder="例如：兰苑 2 号楼 / A 区教学楼门口" />
+    </view>
+
+    <view class="field-stack">
+      <view class="field-label">需求说明</view>
+      <textarea class="errand-textarea" value="{{form.note}}" data-field="note" bindinput="onInputField" maxlength="180" auto-height="true" placeholder="补充取件码、楼栋、是否急单等说明" />
+    </view>
+
+    <view class="field-stack">
+      <view class="field-label">联系方式</view>
+      <input class="input" value="{{form.contact}}" data-field="contact" bindinput="onInputField" maxlength="60" placeholder="例如：站内私信 @赵同学" />
+      <view class="field-help">只有发布者和已接单同学能看到这里的联系信息。</view>
+    </view>
+
+    <button class="btn-primary submit-btn" bindtap="submit" loading="{{submitting}}" disabled="{{submitting}}">发布任务</button>
+  </view>
+</view>

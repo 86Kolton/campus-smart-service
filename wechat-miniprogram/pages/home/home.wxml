@@ -1,0 +1,106 @@
+<view class="page-shell">
+  <view class="global-head">
+    <view class="assistant-mini">校园助手</view>
+    <view class="online-pill">实时联机</view>
+  </view>
+
+  <view class="hello-title">你好，{{greetingName}}</view>
+  <view class="hello-sub">{{greetingDate}}</view>
+
+  <view class="surface-card status-card">
+    <view class="section-kicker">实时协同</view>
+    <view class="section-title">服务状态：{{serviceStatus}}</view>
+    <view class="section-sub">{{serviceDesc}}</view>
+  </view>
+
+  <view class="grid-2">
+    <view
+      wx:for="{{quickEntrances}}"
+      wx:key="id"
+      class="tile tile-{{item.tone}}"
+      data-action="{{item.action}}"
+      data-keyword="{{item.keyword}}"
+      data-topic-key="{{item.topicKey}}"
+      data-edu-action="{{item.eduAction}}"
+      data-today-only="{{item.todayOnly}}"
+      bindtap="onTapEntrance"
+    >
+      <view class="tile-title">{{item.title}}</view>
+      <view class="tile-sub">{{item.sub}}</view>
+    </view>
+  </view>
+
+  <view class="surface-card hot-card">
+    <view class="hot-head">
+      <view>
+        <view class="section-title">首页 2 小时热帖</view>
+        <view class="hot-topic">今日话题：{{hotTopic}}</view>
+      </view>
+      <view class="hot-badge">HOT</view>
+    </view>
+
+    <view wx:for="{{hotPosts}}" wx:key="id" class="hot-row" data-id="{{item.id}}" data-title="{{item.title}}" bindtap="onTapHotPost">
+      <view class="rank">{{item.rank}}</view>
+      <view class="hot-main">
+        <view class="hot-title">{{item.title}}</view>
+      </view>
+      <view class="hot-views">{{item.heat}}</view>
+    </view>
+
+    <view wx:if="{{loading && !hotPosts.length}}" class="empty">正在刷新数据...</view>
+  </view>
+
+  <view class="surface-card feed-toolbar">
+    <view class="feed-toolbar-head">
+      <view>
+        <view class="section-title feed-title">校园帖子流</view>
+        <view class="section-caption">高赞内容会用于知识库自进化与推荐排序。</view>
+      </view>
+    </view>
+    <view class="filter-row">
+      <view wx:for="{{feedFilters}}" wx:key="id" class="filter-chip {{activeFilter === item.id ? 'is-active' : ''}}" data-filter="{{item.id}}" bindtap="onChangeFilter">{{item.label}}</view>
+    </view>
+  </view>
+
+  <view class="feed-list">
+    <view wx:for="{{displayFeedItems}}" wx:key="id" class="surface-card post-card" data-id="{{item.id}}" data-title="{{item.title}}" bindtap="openPost">
+      <view class="author-row">
+        <view class="avatar">{{item.avatar}}</view>
+        <view class="author-meta">
+          <view class="author-name">{{item.author}}</view>
+          <view class="time">{{item.time}}</view>
+        </view>
+      </view>
+
+      <view class="post-title">{{item.title}}</view>
+      <view class="post-content">{{item.content}}</view>
+
+      <view wx:if="{{item.commentsPreview.length}}" class="post-thread-preview">
+        <view wx:for="{{item.commentsPreview}}" wx:key="*this" wx:for-item="preview" class="preview-line">{{preview}}</view>
+      </view>
+
+      <view wx:if="{{item.statusBadgeText}}" class="post-badges">
+        <view class="post-badge {{item.statusBadgeTone}}">{{item.statusBadgeText}}</view>
+      </view>
+
+      <view wx:if="{{item.tagText}}" class="tags">{{item.tagText}}</view>
+
+      <view class="post-actions">
+        <button class="btn-action btn-action-like {{item.liked ? 'is-on' : ''}}" data-id="{{item.id}}" catchtap="toggleLike" disabled="{{feedBusyId === item.id}}">
+          {{item.liked ? '已点赞' : '点赞'}} {{item.likes}}
+        </button>
+        <button class="btn-action btn-action-comment" data-id="{{item.id}}" data-title="{{item.title}}" catchtap="openComment">
+          评论 {{item.comments}}
+        </button>
+      </view>
+    </view>
+
+    <view wx:if="{{!displayFeedItems.length && !loading}}" class="surface-card empty-card">
+      <view class="empty">当前筛选下暂无帖子</view>
+    </view>
+  </view>
+
+  <button class="global-fab" bindtap="openComposer" aria-label="发布帖子">
+    <text class="global-fab-plus">+</text>
+  </button>
+</view>

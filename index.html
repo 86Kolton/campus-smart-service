@@ -1,0 +1,588 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>校园助手</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="stylesheet" href="./styles.css?v=20260410-1">
+</head>
+<body>
+  <div class="ambient" aria-hidden="true">
+    <span class="halo halo-a"></span>
+    <span class="halo halo-b"></span>
+    <span class="halo halo-c"></span>
+    <span class="mesh"></span>
+  </div>
+
+  <div class="workspace">
+    <aside class="design-note reveal">
+      <p class="note-kicker">Campus Assistant</p>
+      <h1>校园助手</h1>
+      <p class="note-sub">围绕河北大学场景组织帖子、知识库、跑腿和教务入口，网页端与小程序共用同一套账号和业务数据。</p>
+
+      <ul class="note-list">
+        <li>搜索页：只搜索帖子与论坛内容，不混入知识库回答</li>
+        <li>知识库页：固定为校园知识库问答，支持连续追问</li>
+        <li>我的页：统一查看收到的赞、收藏列表和个人发布内容</li>
+        <li>首页：持续承接热点流、经验贴与实时互动数据</li>
+      </ul>
+
+      <section class="route-card">
+        <h2>核心能力</h2>
+        <article class="route-item local">
+          <strong>教务服务</strong>
+          <p>成绩、课表、考试安排、空教室</p>
+          <span>统一入口查看个人信息</span>
+        </article>
+        <article class="route-item cloud">
+          <strong>校园问答</strong>
+          <p>校区、教务流程、图书馆、自习室和生活服务</p>
+          <span>先给结论，再给来源</span>
+        </article>
+      </section>
+    </aside>
+
+    <section class="phone-wrap reveal">
+      <div class="phone-shell">
+        <div class="notch" aria-hidden="true"></div>
+
+        <div class="app-shell" role="application" aria-label="校园智慧服务平台客户端原型">
+          <header class="app-header">
+            <div class="head-top">
+              <span class="campus-tag">校园助手</span>
+              <span class="head-state">在线服务</span>
+            </div>
+            <h2 id="headerGreeting">你好，同学</h2>
+            <p id="todaySentence">欢迎回来，开始今天的校园任务吧</p>
+          </header>
+
+          <main class="screens">
+            <section class="screen is-active" data-view="home" aria-label="首页">
+              <article class="card home-hero">
+                <h3>服务状态：在线</h3>
+                <p>社区动态、课程提醒与知识库问答已联动，热点变化会实时反映到推荐与检索结果。</p>
+              </article>
+
+              <section class="panel-grid">
+                <button class="panel panel-schedule" data-jump="messages" data-prompt="今天还有课程安排吗？">
+                  <strong>今日课表</strong>
+                  <span>空档与调课提醒</span>
+                </button>
+                <button class="panel panel-errand" data-jump="home" data-prompt="帮我发一个跑腿任务草稿">
+                  <strong>跑腿任务</strong>
+                  <span>代取代送快捷入口</span>
+                </button>
+                <button class="panel panel-course" data-jump="search" data-prompt="课程评价里推荐哪位老师？">
+                  <strong>课程评价</strong>
+                  <span>选课避坑与口碑</span>
+                </button>
+                <button class="panel panel-group" data-jump="search" data-prompt="最近校园趣事热帖有哪些？">
+                  <strong>跨校小组</strong>
+                  <span>热点话题汇总</span>
+                </button>
+              </section>
+
+              <section class="card hot-card">
+                <div class="card-head">
+                  <h3>首页 2 小时热帖</h3>
+                  <span class="hot-pill">HOT</span>
+                </div>
+                <p class="hot-topic">今日话题：二食堂高峰排队是否明显改善？</p>
+
+                <div class="hot-list" id="homeHotList">
+                  <button class="hot-row" data-hot="二食堂清汤窗口排队更快吗？">
+                    <span class="hot-rank top">1</span>
+                    <span class="hot-title">二食堂错峰窗口实测</span>
+                    <span class="hot-heat">9.8k</span>
+                  </button>
+                  <button class="hot-row" data-hot="A1 教学楼晚上自习体验如何？">
+                    <span class="hot-rank top">2</span>
+                    <span class="hot-title">A1-307 晚间自习位反馈</span>
+                    <span class="hot-heat">8.6k</span>
+                  </button>
+                  <button class="hot-row" data-hot="周三临时调课是否已经同步到课表？">
+                    <span class="hot-rank top">3</span>
+                    <span class="hot-title">周三调课通知集中帖</span>
+                    <span class="hot-heat">7.9k</span>
+                  </button>
+                </div>
+              </section>
+
+              <section class="card feed-toolbar">
+                <div class="filter-row">
+                  <button class="feed-filter-btn is-active" data-filter="all">最新</button>
+                  <button class="feed-filter-btn" data-filter="canteen">食堂</button>
+                  <button class="feed-filter-btn" data-filter="study">自习</button>
+                  <button class="feed-filter-btn" data-filter="academic">教务</button>
+                </div>
+                <p class="feed-tip">高赞帖子进入学习队列，采纳后自动显示“AI 已采纳”。</p>
+              </section>
+
+              <section class="feed-list" id="feedList"></section>
+            </section>
+
+            <section class="screen" data-view="search" aria-label="搜索">
+              <article class="card search-card forum-only">
+                <h3>论坛帖子搜索</h3>
+                <div class="search-row">
+                  <input id="marketQuery" type="text" placeholder="例如：二食堂窗口、选课建议、空教室" aria-label="论坛搜索">
+                  <button id="marketSearchBtn" class="btn-dark">搜索</button>
+                </div>
+                <p class="scope-tip">此页仅搜索论坛帖子内容，不进行知识库问答。</p>
+              </article>
+
+              <article class="card recent-card">
+                <div class="card-head">
+                  <h4>最近搜索</h4>
+                  <button id="clearRecentBtn" class="text-btn" type="button">清空</button>
+                </div>
+                <div id="recentSearchList" class="recent-list"></div>
+              </article>
+
+              <article class="card category-card">
+                <h4>分类频道</h4>
+                <div class="category-grid">
+                  <button class="category-item" data-category="二手交易">
+                    <span class="icon-wrap" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M3 6h18v11H3zM7 18h10v2H7zM8 8h8v2H8zm0 3h5v2H8z"/></svg>
+                    </span>
+                    <em>二手交易</em>
+                  </button>
+                  <button class="category-item" data-category="课程评价">
+                    <span class="icon-wrap" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M4 4h12v16H4zM8 8h4v2H8zm0 4h4v2H8zm10-6 3 2v10l-3 2z"/></svg>
+                    </span>
+                    <em>课程评价</em>
+                  </button>
+                  <button class="category-item" data-category="食堂避雷">
+                    <span class="icon-wrap" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M7 3h2v8a2 2 0 1 1-2 0zm8 0h2v8a2 2 0 1 1-2 0zM5 15h14v6H5z"/></svg>
+                    </span>
+                    <em>食堂避雷</em>
+                  </button>
+                  <button class="category-item" data-category="自习教室">
+                    <span class="icon-wrap" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M3 5h18v14H3zm2 2v10h14V7zm2 2h4v4H7zm6 0h4v4h-4z"/></svg>
+                    </span>
+                    <em>自习教室</em>
+                  </button>
+                </div>
+              </article>
+
+              <article class="card result-card">
+                <div class="card-head">
+                  <h4>匹配帖子</h4>
+                  <div class="result-tools">
+                    <div class="sort-toggle" role="tablist" aria-label="搜索排序">
+                      <button class="sort-btn is-active" type="button" data-sort="hot">热度</button>
+                      <button class="sort-btn" type="button" data-sort="latest">最新</button>
+                    </div>
+                    <span id="marketCount">0 条</span>
+                  </div>
+                </div>
+                <div id="marketResultList" class="result-list"></div>
+                <button id="loadMoreSearchBtn" class="btn-light load-more-btn" type="button" hidden>加载更多</button>
+              </article>
+
+              <article class="card rank-card">
+                <h4>论坛 24 小时热文</h4>
+                <button class="rank-row" data-hot="二手显示器验机建议"><span>1</span><em>二手显示器验机建议</em><i>6.2k</i></button>
+                <button class="rank-row" data-hot="考研自习室插座分布"><span>2</span><em>考研自习室插座分布</em><i>5.5k</i></button>
+                <button class="rank-row" data-hot="周末校车末班时间"><span>3</span><em>周末校车末班时间</em><i>4.9k</i></button>
+              </article>
+            </section>
+
+            <section class="screen" data-view="messages" aria-label="知识库">
+              <p class="wiki-badge">校园知识库 · 可追溯来源 · 中文语义回答</p>
+
+              <div class="wiki-board" id="wikiBoard">
+                <article class="bubble assistant">
+                  <p class="bubble-role">校园助手</p>
+                  <p class="bubble-text">欢迎来到校园知识库模式，你可以问办事流程、教室资源、生活经验。</p>
+                </article>
+              </div>
+
+              <div id="wikiQuickRow" class="wiki-quick-row" hidden>
+                <button class="wiki-chip" data-text="今晚 19 点后哪里自习最安静？">今晚 19 点后哪里自习最安静？</button>
+                <button class="wiki-chip" data-text="二食堂排队最短窗口是哪个？">二食堂排队最短窗口是哪个？</button>
+                <button class="wiki-chip" data-text="教务处今天几点下班？">教务处今天几点下班？</button>
+              </div>
+
+              <div class="wiki-options">
+                <label class="wiki-deep-switch" for="wikiDeepThinkingToggle">
+                  <input id="wikiDeepThinkingToggle" type="checkbox" aria-label="开启深度思考检索">
+                  <span>深度思考</span>
+                </label>
+              </div>
+
+            <form id="wikiForm" class="composer composer-message">
+              <textarea id="wikiInput" rows="2" placeholder="向校园知识库提问..." aria-label="知识库提问"></textarea>
+              <button type="submit" class="btn-dark">发送</button>
+            </form>
+          </section>
+          <section id="wikiDetailSheet" class="wiki-detail-sheet" aria-label="知识详情" hidden>
+            <header class="wiki-detail-head">
+              <div class="wiki-detail-copy">
+                <p class="wiki-detail-kicker">相关内容</p>
+                <h4 id="wikiDetailTitle">来源详情</h4>
+              </div>
+              <button id="wikiDetailCloseBtn" class="icon-btn" type="button" aria-label="关闭知识详情">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7 4.3 4.3l6.3 6.3 6.3-6.3z"/></svg>
+              </button>
+            </header>
+            <div id="wikiDetailList" class="wiki-detail-list"></div>
+          </section>
+          <div id="wikiDetailMask" class="detail-mask" hidden></div>
+
+            <section class="screen" data-view="profile" aria-label="我的">
+              <article class="card profile-hero">
+                <div class="profile-avatar">ZY</div>
+                <h3 id="profileName">赵毅</h3>
+                <p id="profileMeta">河北大学 · 软件工程 2022 级</p>
+                <p class="bind-state" id="profileBindState">已绑定微信身份</p>
+                <div class="profile-public-strip">
+                  <div>
+                    <span class="profile-public-label">发言昵称</span>
+                    <strong id="profilePublicName">赵同学</strong>
+                  </div>
+                  <button class="btn-light profile-public-action" type="button" data-menu-action="publicName">修改昵称</button>
+                </div>
+              </article>
+
+              <article class="card stats-card">
+                <button class="stat-item" data-stat-action="myPosts">
+                  <strong id="profilePostCount">28</strong>
+                  <span>发帖</span>
+                </button>
+                <button class="stat-item" data-stat-action="likedPosts">
+                  <strong id="profileLikeCount">176</strong>
+                  <span>获赞</span>
+                </button>
+              </article>
+
+              <article class="card inbox-card">
+                <div class="card-head">
+                  <h4>消息中心</h4>
+                  <div class="inbox-head-actions">
+                    <button id="markAllReadBtn" class="text-btn" type="button">全部已读</button>
+                  </div>
+                </div>
+                <div id="profileMessageList" class="inbox-list"></div>
+              </article>
+
+              <article class="card edu-card">
+                <h4>教务大厅</h4>
+                <p class="edu-security-note">隐私强保护：教务数据仅走受控会话，不参与公开知识库检索。</p>
+                <div class="edu-grid">
+                  <button class="edu-item" data-edu-action="grades">
+                    <span class="icon-wrap" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M4 4h16v14H4zM7 18h10v2H7zm2-9h2v5H9zm4-2h2v7h-2z"/></svg>
+                    </span>
+                    <em>成绩查询</em>
+                  </button>
+                  <button class="edu-item" data-edu-action="schedule">
+                    <span class="icon-wrap" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M5 3h2v2h10V3h2v2h2v16H3V5zm0 6v10h14V9zm2 2h4v4H7z"/></svg>
+                    </span>
+                    <em>课表查看</em>
+                  </button>
+                  <button class="edu-item" data-edu-action="freeClassrooms">
+                    <span class="icon-wrap" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M12 2 4 6v6c0 5 3.4 9.6 8 10 4.6-.4 8-5 8-10V6zm0 4a3 3 0 1 1-3 3 3 3 0 0 1 3-3zm0 11.2A6.8 6.8 0 0 1 7.5 14a4.8 4.8 0 0 1 9 0 6.8 6.8 0 0 1-4.5 3.2z"/></svg>
+                    </span>
+                    <em>空教室</em>
+                  </button>
+                  <button class="edu-item" data-edu-action="exams">
+                    <span class="icon-wrap" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M6 3h12v18H6zm2 4h8v2H8zm0 4h8v2H8zm0 4h5v2H8z"/></svg>
+                    </span>
+                    <em>考试安排</em>
+                  </button>
+                </div>
+              </article>
+
+              <article class="card menu-card">
+                <button class="menu-row" data-menu-action="myPosts"><span>我的帖子</span><i>></i></button>
+                <button class="menu-row" data-menu-action="likedPosts"><span>我的点赞</span><i>></i></button>
+                <button class="menu-row" data-menu-action="publicName"><span>发言昵称</span><i id="profilePublicNameMenuHint">赵同学</i></button>
+                <button class="menu-row" data-menu-action="wechatBind"><span>账号互通</span><i id="profileInteropHint">通过小程序互通登录</i></button>
+              </article>
+
+              <article class="card usage-card">
+                <h4>用户使用说明</h4>
+                <p>1. “搜索”仅用于论坛帖子检索。</p>
+                <p>2. “知识库”页仅基于知识库回答，并展示可点击来源。</p>
+                <p>3. “我的”页可查看互动消息提醒与教务入口。</p>
+                <p>4. 首页优质帖子会逐步沉淀为更稳定的校园经验内容。</p>
+                <button id="copyUsageBtn" class="copy-btn">复制使用说明</button>
+              </article>
+            </section>
+          </main>
+
+          <button class="fab-btn" id="globalFabBtn" aria-label="快速发布">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7z"/></svg>
+          </button>
+
+          <nav class="tabbar" aria-label="主导航">
+            <button class="tab is-active" data-target="home">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10 12 3l9 7v10h-6v-6H9v6H3z"/></svg>
+              <span>首页</span>
+            </button>
+            <button class="tab" data-target="search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 4.7 12.2l3.6 3.6 1.4-1.4-3.6-3.6A7 7 0 0 0 11 4zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10z"/></svg>
+              <span>搜索</span>
+            </button>
+            <button class="tab" data-target="messages">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v11H7l-3 3zm2 2v8h2.2L10 12h8V6z"/></svg>
+              <span>知识库</span>
+            </button>
+            <button class="tab" data-target="profile" id="profileTabBtn">
+              <span class="tab-dot" id="profileTabDot" hidden></span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm-8 8a8 8 0 0 1 16 0z"/></svg>
+              <span>我的</span>
+            </button>
+          </nav>
+
+          <section id="searchResultSheet" class="search-result-sheet fullpage" aria-label="搜索结果页" hidden>
+            <header class="detail-head fullpage-head">
+              <div class="comment-head-main">
+                <h4 id="searchResultTitle">搜索结果</h4>
+                <p id="searchResultSub" class="comment-sheet-sub">关键词</p>
+              </div>
+              <div class="fullpage-actions">
+                <button id="backSearchResultBtn" class="icon-btn" type="button" aria-label="返回上一页">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 5 9 12l6.5 7-1.5 1.5L6 12l8-8z"/></svg>
+                </button>
+              </div>
+            </header>
+            <div class="search-result-toolbar">
+              <div class="sort-toggle" role="tablist" aria-label="搜索结果排序">
+                <button class="search-page-sort-btn is-active" type="button" data-search-page-sort="hot">热度</button>
+                <button class="search-page-sort-btn" type="button" data-search-page-sort="latest">最新</button>
+              </div>
+              <span id="searchResultCount">0 条</span>
+            </div>
+            <div id="searchResultList" class="result-list search-result-list"></div>
+            <div class="pager pager-numbers">
+              <button id="searchPagePrevBtn" class="btn-light pager-btn" type="button" aria-label="上一页">上一页</button>
+              <div id="searchPageNumbers" class="pager-numbers-list" aria-label="分页"></div>
+              <div class="pager-jump">
+                <input id="searchPageJumpInput" type="number" min="1" placeholder="页码">
+                <button id="searchPageJumpBtn" class="btn-light pager-btn" type="button">跳转</button>
+              </div>
+              <button id="searchPageNextBtn" class="btn-light pager-btn" type="button" aria-label="下一页">下一页</button>
+            </div>
+          </section>
+          <div id="searchResultMask" class="detail-mask" hidden></div>
+
+          <section id="subpageSheet" class="subpage-sheet fullpage" aria-label="功能页面" hidden>
+            <header class="detail-head fullpage-head">
+              <div class="comment-head-main">
+                <h4 id="subpageTitle">功能页面</h4>
+                <p id="subpageSub" class="comment-sheet-sub">功能说明</p>
+              </div>
+              <div class="fullpage-actions">
+                <button id="backSubpageBtn" class="icon-btn" type="button" aria-label="返回上一页">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 5 9 12l6.5 7-1.5 1.5L6 12l8-8z"/></svg>
+                </button>
+              </div>
+            </header>
+            <div id="subpageBody" class="subpage-body"></div>
+            <div id="subpageList" class="subpage-list"></div>
+            <button id="subpageActionBtn" class="btn-dark subpage-action" type="button" hidden>进入页面</button>
+          </section>
+          <div id="subpageMask" class="detail-mask" hidden></div>
+
+          <section id="errandSheet" class="subpage-sheet fullpage errand-sheet" aria-label="跑腿配送" hidden>
+            <header class="detail-head fullpage-head">
+              <div class="comment-head-main">
+                <h4>跑腿配送</h4>
+                <p class="comment-sheet-sub">校园集市 · 代取代送</p>
+              </div>
+              <div class="fullpage-actions">
+                <button id="backErrandBtn" class="icon-btn" type="button" aria-label="返回上一页">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 5 9 12l6.5 7-1.5 1.5L6 12l8-8z"/></svg>
+                </button>
+              </div>
+            </header>
+            <div class="errand-hero">
+              <h5>即时需求池</h5>
+              <p>发布需求后 10 分钟内优先推送给附近同学，支持到达提醒与费用透明。</p>
+              <div class="errand-kpis">
+                <div><strong id="errandOpenCount">0</strong><span>待接单</span></div>
+                <div><strong id="errandInProgressCount">0</strong><span>进行中</span></div>
+                <div><strong id="errandDoneCount">0</strong><span>今日完成</span></div>
+              </div>
+            </div>
+            <div class="errand-filters">
+              <button class="chip is-active" data-errand-filter="all">全部</button>
+              <button class="chip" data-errand-filter="quick">快速代取</button>
+              <button class="chip" data-errand-filter="delivery">外卖代拿</button>
+              <button class="chip" data-errand-filter="print">打印跑腿</button>
+            </div>
+            <div id="errandList" class="errand-list"></div>
+            <button id="errandCreateBtn" class="btn-dark subpage-action" type="button">发布跑腿需求</button>
+          </section>
+          <div id="errandMask" class="detail-mask" hidden></div>
+
+          <section id="crossGroupSheet" class="subpage-sheet fullpage cross-sheet" aria-label="跨校讨论" hidden>
+            <header class="detail-head fullpage-head">
+              <div class="comment-head-main">
+                <h4>跨校讨论</h4>
+                <p class="comment-sheet-sub">校园集市 · 话题组</p>
+              </div>
+              <div class="fullpage-actions">
+                <button id="backCrossGroupBtn" class="icon-btn" type="button" aria-label="返回上一页">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 5 9 12l6.5 7-1.5 1.5L6 12l8-8z"/></svg>
+                </button>
+              </div>
+            </header>
+            <div class="cross-hero">
+              <h5>今日热议</h5>
+              <p>跨校话题精选与高赞讨论同步更新，支持加入讨论组与匿名发言。</p>
+              <div class="cross-tags">
+                <span>#期末备考</span>
+                <span>#空教室情报</span>
+                <span>#竞赛组队</span>
+              </div>
+            </div>
+            <div class="cross-grid" id="crossGroupList"></div>
+            <div class="cross-topic-list" id="crossTopicList"></div>
+          </section>
+          <div id="crossGroupMask" class="detail-mask" hidden></div>
+
+          <section id="inboxDetailSheet" class="detail-sheet" aria-label="消息详情" hidden>
+            <header class="detail-head">
+              <h4 id="detailSheetTitle">消息中心</h4>
+              <div class="detail-head-actions">
+                <button id="markTypeReadBtn" class="text-btn" type="button">本类已读</button>
+                <button id="closeDetailSheetBtn" class="icon-btn" type="button" aria-label="关闭详情">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7 4.3 4.3l6.3 6.3 6.3-6.3z"/></svg>
+                </button>
+              </div>
+            </header>
+            <div class="detail-tabs" role="tablist" aria-label="消息详情分类">
+              <button class="detail-tab is-active" type="button" data-detail-tab="likes">收到的赞</button>
+              <button class="detail-tab" type="button" data-detail-tab="saved">收藏列表</button>
+            </div>
+            <div id="inboxDetailList" class="detail-list"></div>
+          </section>
+          <div id="detailSheetMask" class="detail-mask" hidden></div>
+
+          <section id="postDetailSheet" class="post-detail-sheet fullpage" aria-label="帖子详情" hidden>
+            <header class="detail-head fullpage-head">
+              <h4 id="postDetailTitle">帖子详情</h4>
+              <div class="fullpage-actions">
+                <button id="backPostDetailBtn" class="icon-btn" type="button" aria-label="返回上一页">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 5 9 12l6.5 7-1.5 1.5L6 12l8-8z"/></svg>
+                </button>
+              </div>
+            </header>
+            <article class="post-detail-body">
+              <p id="postDetailMeta" class="post-detail-meta">来源</p>
+              <h5 id="postDetailHeading" class="post-detail-heading">标题</h5>
+              <p id="postDetailContent" class="post-detail-content">内容</p>
+              <img id="postDetailImage" class="post-detail-image" src="" alt="帖子图片" hidden>
+              <div id="postDetailPreview" class="post-detail-preview"></div>
+              <div class="post-detail-actions">
+                <button id="postDetailCommentBtn" class="detail-link-btn" type="button" hidden>查看本帖评论</button>
+              </div>
+              <p id="postDetailTags" class="post-detail-tags">标签</p>
+              <div id="postFallbackList" class="fallback-list"></div>
+            </article>
+          </section>
+          <div id="postDetailMask" class="detail-mask" hidden></div>
+
+          <section id="commentSheet" class="comment-sheet fullpage" aria-label="评论页" hidden>
+            <header class="detail-head fullpage-head">
+              <div class="comment-head-main">
+                <h4 id="commentSheetTitle">评论</h4>
+                <p id="commentSheetSub" class="comment-sheet-sub">0 条评论</p>
+              </div>
+              <div class="fullpage-actions">
+                <button id="backCommentSheetBtn" class="icon-btn" type="button" aria-label="返回上一页">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 5 9 12l6.5 7-1.5 1.5L6 12l8-8z"/></svg>
+                </button>
+              </div>
+            </header>
+            <div id="commentList" class="comment-list"></div>
+            <form id="commentForm" class="comment-form">
+              <div id="commentReplyMeta" class="comment-reply-meta" hidden>
+                <span id="commentReplyText">回复</span>
+                <button id="commentReplyCancelBtn" class="text-btn" type="button">取消回复</button>
+              </div>
+              <textarea id="commentInput" rows="2" maxlength="200" placeholder="说点什么..." aria-label="评论输入"></textarea>
+              <div class="comment-upload-row">
+                <label class="comment-upload-btn" for="commentImageInput">添加图片（<=1MB）</label>
+                <input id="commentImageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+                <span id="commentImageMeta" class="comment-upload-meta">未选择图片</span>
+              </div>
+              <button id="commentSendBtn" class="btn-dark comment-send-btn" type="submit">发送</button>
+            </form>
+          </section>
+          <div id="commentSheetMask" class="detail-mask" hidden></div>
+
+          <section id="postComposerSheet" class="comment-sheet" aria-label="发布帖子" hidden>
+            <header class="detail-head">
+              <div class="comment-head-main">
+                <h4>发布帖子</h4>
+                <p class="comment-sheet-sub">30分钟最多发布3条，图片限制1MB。</p>
+              </div>
+              <button id="closePostComposerBtn" class="icon-btn" type="button" aria-label="关闭发布">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7 4.3 4.3l6.3 6.3 6.3-6.3z"/></svg>
+              </button>
+            </header>
+            <form id="postComposerForm" class="post-composer-form">
+              <select id="postCategoryInput" aria-label="帖子分类">
+                <option value="study">学习空间</option>
+                <option value="canteen">食堂生活</option>
+                <option value="academic">教务课程</option>
+              </select>
+              <input id="postTitleInput" maxlength="120" placeholder="帖子标题（必填）" aria-label="帖子标题">
+              <textarea id="postContentInput" rows="4" maxlength="2000" placeholder="帖子内容（必填）" aria-label="帖子内容"></textarea>
+              <input id="postTagsInput" maxlength="120" placeholder="标签（用逗号分隔，如 自习室,夜间学习）" aria-label="帖子标签">
+              <div class="comment-upload-row">
+                <label class="comment-upload-btn" for="postImageInput">上传图片（<=1MB）</label>
+                <input id="postImageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+                <span id="postImageMeta" class="comment-upload-meta">未选择图片</span>
+              </div>
+              <button id="postSubmitBtn" class="btn-dark comment-send-btn" type="submit">发布</button>
+            </form>
+          </section>
+          <div id="postComposerMask" class="detail-mask" hidden></div>
+
+          <section id="eduSheet" class="edu-sheet fullpage" aria-label="教务详情" hidden>
+            <header class="detail-head fullpage-head">
+              <div class="comment-head-main">
+                <h4 id="eduSheetTitle">教务详情</h4>
+                <p id="eduSheetSub" class="comment-sheet-sub">隐私会话已开启</p>
+              </div>
+              <div class="fullpage-actions">
+                <button id="backEduSheetBtn" class="icon-btn" type="button" aria-label="返回上一页">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 5 9 12l6.5 7-1.5 1.5L6 12l8-8z"/></svg>
+                </button>
+              </div>
+            </header>
+            <article id="eduSheetBody" class="edu-sheet-body"></article>
+          </section>
+          <div id="eduSheetMask" class="detail-mask" hidden></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="imageViewer" class="image-viewer" hidden>
+    <div class="image-viewer-backdrop" aria-hidden="true"></div>
+    <div class="image-viewer-body" role="dialog" aria-modal="true" aria-label="图片预览">
+      <button id="imageViewerClose" class="icon-btn image-viewer-close" type="button" aria-label="关闭图片">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7 4.3 4.3l6.3 6.3 6.3-6.3z"/></svg>
+      </button>
+      <img id="imageViewerImg" alt="图片预览">
+    </div>
+  </div>
+
+  <script src="./app.js?v=20260410-1"></script>
+</body>
+</html>
+

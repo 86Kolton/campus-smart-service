@@ -1,0 +1,49 @@
+<view class="page-wrap page-wrap-sub">
+  <view class="surface-card topic-hero-card">
+    <view class="topic-hero-head">
+      <view class="subpage-head topic-head-copy">
+        <view class="subpage-brow">{{config.brow}}</view>
+        <view class="subpage-title">{{config.title}}</view>
+        <view class="subpage-sub">{{config.subtitle}}</view>
+      </view>
+    </view>
+    <view class="topic-hero-copy">{{config.description}}</view>
+
+    <view class="topic-hero-actions">
+      <button class="btn-primary topic-compose-btn" bindtap="openComposer">发布相关帖子</button>
+      <view class="topic-page-note">每页最多 10 条，优先展示高质量原帖。</view>
+    </view>
+
+    <view class="subpage-chip-row">
+      <view wx:for="{{config.chips}}" wx:key="*this" class="chip {{activeKeyword === item ? 'is-active' : ''}}" data-keyword="{{item}}" bindtap="onTapChip">{{item}}</view>
+    </view>
+  </view>
+
+  <view class="surface-card">
+    <view class="topic-toolbar">
+      <view class="section-title topic-section-title">专题帖子</view>
+      <view class="sort-switch">
+        <button class="{{sort === 'hot' ? 'btn-pill active' : 'btn-pill'}}" size="mini" data-sort="hot" bindtap="onChangeSort">热度</button>
+        <button class="{{sort === 'latest' ? 'btn-pill active' : 'btn-pill'}}" size="mini" data-sort="latest" bindtap="onChangeSort">最新</button>
+      </view>
+    </view>
+
+    <view wx:if="{{loading}}" class="empty">正在加载专题内容...</view>
+    <view wx:if="{{error}}" class="empty">{{error}}</view>
+
+    <view wx:for="{{posts}}" wx:key="id" class="topic-post" data-id="{{item.id}}" data-title="{{item.title}}" bindtap="openPost">
+      <view class="topic-post-title">{{item.title}}</view>
+      <view class="topic-post-snippet">{{item.snippet}}</view>
+      <view class="topic-post-meta">{{item.meta}} · 点赞 {{item.likes}} · 评论 {{item.comments}}</view>
+      <view class="topic-post-link">查看原帖</view>
+    </view>
+
+    <view wx:if="{{!loading && !error && !posts.length}}" class="empty">当前专题下暂无帖子</view>
+
+    <view wx:if="{{!error}}" class="pager topic-pager">
+      <button class="btn-ghost pager-btn" size="mini" bindtap="prevPage" disabled="{{page <= 1 || loading}}">上一页</button>
+      <view class="pager-center">第 {{page}} / {{pageCount}} 页</view>
+      <button class="btn-ghost pager-btn" size="mini" bindtap="nextPage" disabled="{{!hasMore || loading}}">下一页</button>
+    </view>
+  </view>
+</view>

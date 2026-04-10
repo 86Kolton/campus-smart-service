@@ -1,0 +1,105 @@
+.groups-section-title {
+  font-size: 34rpx;
+}
+
+.groups-compose-btn {
+  margin-top: 16rpx;
+  width: 100%;
+}
+
+.groups-grid {
+  margin-top: 14rpx;
+  display: grid;
+  gap: 12rpx;
+}
+
+.group-card {
+  border: 1rpx solid #d9e4f1;
+  border-radius: 24rpx;
+  background: linear-gradient(145deg, #fbfdff, #f3f8ff);
+  padding: 20rpx;
+}
+
+.group-card-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #183856;
+}
+
+.group-card-meta {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #6e849c;
+}
+
+.topic-entry {
+  margin-top: 14rpx;
+  padding: 14rpx 0 0;
+  border-top: 1rpx solid #dbe5f1;
+  display: flex;
+  justify-content: space-between;
+  gap: 14rpx;
+}
+
+.topic-entry-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.topic-entry-title {
+  font-size: 28rpx;
+  line-height: 1.46;
+  font-weight: 700;
+  color: #1d3d5f;
+}
+
+.topic-entry-meta {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #70859d;
+}
+
+.topic-entry-heat {
+  font-size: 22rpx;
+  color: #1f4d80;
+  font-weight: 700;
+}
+
+.group-post {
+  margin-top: 14rpx;
+  padding: 18rpx;
+  border: 1rpx solid #dbe5f1;
+  border-radius: 22rpx;
+  background: linear-gradient(180deg, #fbfdff, #f6faff);
+}
+
+.group-post + .group-post {
+  margin-top: 12rpx;
+}
+
+.group-post-title {
+  font-size: 30rpx;
+  line-height: 1.4;
+  font-weight: 700;
+  color: #183856;
+}
+
+.group-post-snippet {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  line-height: 1.62;
+  color: #506983;
+}
+
+.group-post-meta {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #70859d;
+}
+
+.group-post-link {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: #244f83;
+  font-weight: 700;
+}

@@ -1,0 +1,27 @@
+<view class="page-wrap page-wrap-sub">
+  <view class="surface-card account-hero">
+    <view class="subpage-head">
+      <view class="subpage-brow">公开身份 · 发言昵称</view>
+      <view class="subpage-title">{{settings ? settings.public_name : '赵同学'}}</view>
+      <view class="subpage-sub">论坛帖子、评论和消息提醒里展示的是这个昵称，真实姓名只在“我的”页保留。</view>
+    </view>
+  </view>
+
+  <view class="surface-card account-stack">
+    <view class="account-row"><view class="account-label">真实姓名</view><view class="account-value">{{settings ? settings.display_name : '--'}}</view></view>
+    <view class="account-row"><view class="account-label">微信绑定</view><view class="account-value">{{settings ? (settings.wechat_bound ? '已绑定微信身份' : '未绑定微信身份') : '--'}}</view></view>
+  </view>
+
+  <view class="surface-card account-stack">
+    <view class="field-label">修改发言昵称</view>
+    <input class="input" maxlength="24" value="{{formValue}}" placeholder="例如：夜读观察员" bindinput="onInput" />
+    <view class="account-preview">
+      <view class="account-preview-label">帖子里会显示为</view>
+      <view class="account-preview-value">@{{formValue || (settings ? settings.public_name : '赵同学')}}</view>
+    </view>
+    <button class="btn-primary account-submit" bindtap="save" loading="{{saving}}" disabled="{{saving}}">保存昵称</button>
+  </view>
+
+  <view wx:if="{{loading}}" class="surface-card empty">加载中...</view>
+  <view wx:if="{{error}}" class="surface-card empty">{{error}}</view>
+</view>

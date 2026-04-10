@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>校园知识工作台</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./studio.css?v=20260409-2" />
+</head>
+<body data-page="workspace">
+  <div class="scene-backdrop"></div>
+  <div class="scene-orb orb-a"></div>
+  <div class="scene-orb orb-b"></div>
+
+  <div class="workspace-shell">
+    <aside class="workspace-side">
+      <div class="brand-panel">
+        <p class="brand-kicker">Hebei University</p>
+        <h1>校园知识工作台</h1>
+        <p>把配置、知识入库、问答验证和自进化运营拆成更清晰的工作面，不再把全部内容一次铺满。</p>
+      </div>
+
+      <nav id="workspaceNav" class="workspace-nav" aria-label="主导航">
+        <button class="workspace-nav-btn" type="button" data-screen="overview">总览</button>
+        <button class="workspace-nav-btn" type="button" data-screen="config">接口配置</button>
+        <button class="workspace-nav-btn" type="button" data-screen="kb">知识库</button>
+        <button class="workspace-nav-btn" type="button" data-screen="ingest">入库中心</button>
+        <button class="workspace-nav-btn" type="button" data-screen="qa">问答验证</button>
+        <button class="workspace-nav-btn" type="button" data-screen="ops">自进化</button>
+      </nav>
+    </aside>
+
+    <main class="workspace-main">
+      <header class="workspace-hero">
+        <div class="hero-copy">
+          <p class="hero-kicker">管理员工作台</p>
+          <h2>分屏管理知识库、问答调试与 AI 回灌</h2>
+          <p id="workspaceStatusText" class="hero-sub">登录态有效后将自动同步后台数据。</p>
+        </div>
+        <div class="hero-actions">
+          <button id="btnRefreshAll" class="btn ghost" type="button">刷新全部</button>
+          <button id="btnLogout" class="btn ghost danger" type="button">退出登录</button>
+        </div>
+      </header>
+
+      <section id="screen-overview" class="screen" data-screen="overview">
+        <div class="screen-head">
+          <div>
+            <p class="screen-kicker">Overview</p>
+            <h3>先看状态，再决定下一步动作</h3>
+            <p>把关键状态、自检结果和操作记录放在同一屏，减少来回滚动。</p>
+          </div>
+        </div>
+
+        <div id="statusCards" class="metric-grid"></div>
+
+        <div class="launch-grid">
+          <button class="launch-card" type="button" data-open-screen="config">
+            <span class="launch-kicker">配置</span>
+            <strong>更新模型与服务地址</strong>
+            <small>集中维护 QA、Embedding、Rerank 和微信配置。</small>
+          </button>
+          <button class="launch-card" type="button" data-open-screen="ingest">
+            <span class="launch-kicker">入库</span>
+            <strong>上传文档并跟踪任务</strong>
+            <small>把文档列表和任务队列放进同一个工作面。</small>
+          </button>
+          <button class="launch-card" type="button" data-open-screen="qa">
+            <span class="launch-kicker">验证</span>
+            <strong>直接调试知识库回答</strong>
+            <small>提问后立即检查返回内容和引用链路。</small>
+          </button>
+          <button class="launch-card" type="button" data-open-screen="ops">
+            <span class="launch-kicker">自进化</span>
+            <strong>按批次执行 AI 回灌</strong>
+            <small>控制单次处理量，并查看审核与录用结果。</small>
+          </button>
+        </div>
+
+        <div class="overview-grid">
+          <article class="module-card">
+            <div class="module-head">
+              <div>
+                <p class="module-kicker">System Check</p>
+                <h4>状态与一键自检</h4>
+              </div>
+              <div class="module-actions">
+                <button id="btnLoadStatus" class="btn ghost" type="button">刷新状态</button>
+                <button id="btnSelfCheck" class="btn" type="button">运行自检</button>
+              </div>
+            </div>
+            <div id="selfCheckResult" class="module-box list-box"></div>
+          </article>
+
+          <article class="module-card">
+            <div class="module-head">
+              <div>
+                <p class="module-kicker">Console</p>
+                <h4>最近操作日志</h4>
+              </div>
+            </div>
+            <div id="console" class="module-box console"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="screen-config" class="screen" data-screen="config">
+        <div class="screen-head">
+          <div>
+            <p class="screen-kicker">Configuration</p>
+            <h3>接口配置</h3>
+            <p>保存后写入 <code>backend/.env</code>。敏感 Key 留空表示不改。</p>
+          </div>
+          <div class="screen-actions">
+            <button id="btnPresetSilicon" class="btn ghost" type="button">填充硅基流动推荐</button>
+            <button id="btnSaveConfig" class="btn" type="button">保存配置</button>
+          </div>
+        </div>
+        <form id="configForm" class="config-grid"></form>
+      </section>
+
+      <section id="screen-kb" class="screen" data-screen="kb">
+        <div class="screen-head">
+          <div>
+            <p class="screen-kicker">Knowledge Bases</p>
+            <h3>知识库管理</h3>
+            <p>把创建动作和列表分开，减少横向拥挤。</p>
+          </div>
+        </div>
+
+        <div class="overview-grid single-expand">
+          <article class="module-card module-card-compact">
+            <div class="module-head">
+              <div>
+                <p class="module-kicker">Create</p>
+                <h4>新建知识库</h4>
+              </div>
+              <div class="module-actions">
+                <button id="btnCreateKb" class="btn" type="button">新建知识库</button>
+                <button id="btnLoadKb" class="btn ghost" type="button">刷新列表</button>
+              </div>
+            </div>
+            <div class="form-grid two-col">
+              <label>
+                知识库名称
+                <input id="kbName" type="text" placeholder="例如：教务处知识库" />
+              </label>
+              <label>
+                描述
+                <input id="kbDesc" type="text" placeholder="例如：成绩、课表、考试安排" />
+              </label>
+            </div>
+          </article>
+
+          <article class="module-card">
+            <div class="module-head">
+              <div>
+                <p class="module-kicker">Inventory</p>
+                <h4>知识库列表</h4>
+              </div>
+              <div id="kbSummary" class="pill-row"></div>
+            </div>
+            <div id="kbTable" class="module-box"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="screen-ingest" class="screen" data-screen="ingest">
+        <div class="screen-head">
+          <div>
+            <p class="screen-kicker">Ingestion</p>
+            <h3>文档上传与任务队列</h3>
+            <p>上传动作放在上方，文档列表与任务队列分成两个可分页模块。</p>
+          </div>
+        </div>
+
+        <article class="module-card module-card-compact">
+          <div class="module-head">
+            <div>
+              <p class="module-kicker">Upload</p>
+              <h4>上传文档</h4>
+            </div>
+            <div class="module-actions">
+              <button id="btnUploadDoc" class="btn" type="button">上传文档</button>
+              <button id="btnLoadDocs" class="btn ghost" type="button">刷新文档</button>
+            </div>
+          </div>
+          <div class="form-grid two-col">
+            <label>
+              目标知识库
+              <select id="docKbSelect"></select>
+            </label>
+            <label>
+              选择文件
+              <input id="docFile" type="file" />
+            </label>
+          </div>
+        </article>
+
+        <div class="section-stack section-stack-tight">
+          <article class="module-card">
+            <div class="module-head">
+              <div>
+                <p class="module-kicker">Documents</p>
+                <h4>文档列表</h4>
+              </div>
+              <div id="docSummary" class="pill-row"></div>
+            </div>
+            <div id="docTable" class="module-box"></div>
+          </article>
+
+          <article class="module-card">
+            <div class="module-head">
+              <div>
+                <p class="module-kicker">Tasks</p>
+                <h4>任务队列</h4>
+              </div>
+              <div class="module-actions">
+                <button id="btnLoadTasks" class="btn ghost" type="button">刷新任务</button>
+              </div>
+            </div>
+            <div id="taskSummary" class="pill-row"></div>
+            <div id="taskTable" class="module-box"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="screen-qa" class="screen" data-screen="qa">
+        <div class="screen-head">
+          <div>
+            <p class="screen-kicker">QA Verification</p>
+            <h3>问答验证</h3>
+            <p>先问，再看返回与日志。调试结果和 QA 日志不再挤在同一张长表里。</p>
+          </div>
+        </div>
+
+        <div class="overview-grid single-expand">
+          <article class="module-card module-card-compact">
+            <div class="module-head">
+              <div>
+                <p class="module-kicker">Ask</p>
+                <h4>问答调试</h4>
+              </div>
+              <div class="module-actions">
+                <button id="btnAsk" class="btn" type="button">发送测试提问</button>
+              </div>
+            </div>
+            <div class="form-grid one-col">
+              <label>
+                测试问题
+                <textarea id="qaQuestion" rows="3" placeholder="例如：河北大学软件工程 ISEC 是什么？"></textarea>
+              </label>
+            </div>
+            <pre id="qaResult" class="code-box">等待提问...</pre>
+          </article>
+
+          <article class="module-card">
+            <div class="module-head">
+              <div>
+                <p class="module-kicker">Logs</p>
+                <h4>QA 日志</h4>
+              </div>
+              <div class="module-actions">
+                <button id="btnLoadLogs" class="btn ghost" type="button">刷新日志</button>
+              </div>
+            </div>
+            <div id="logSummary" class="pill-row"></div>
+            <div id="logTable" class="module-box"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="screen-ops" class="screen" data-screen="ops">
+        <div class="screen-head">
+          <div>
+            <p class="screen-kicker">Evolution</p>
+            <h3>自进化回灌</h3>
+            <p>按批次执行高质量回灌，默认只处理未审核帖子，避免每次重复把旧数据过一遍。</p>
+          </div>
+        </div>
+
+        <article class="module-card module-card-compact">
+          <div class="module-head">
+            <div>
+              <p class="module-kicker">Controls</p>
+              <h4>回灌与清理参数</h4>
+            </div>
+            <div class="module-actions">
+              <button id="btnRunEvolution" class="btn" type="button">执行高质量回灌</button>
+              <button id="btnRunCleanup" class="btn ghost danger" type="button">执行过期清理</button>
+            </div>
+          </div>
+
+          <div class="form-grid ops-form-grid">
+            <label>
+              目标知识库
+              <select id="evoKbId"></select>
+            </label>
+            <label>
+              最少点赞
+              <input id="evoMinLikes" type="number" min="0" value="30" />
+            </label>
+            <label>
+              最少评论
+              <input id="evoMinComments" type="number" min="0" value="5" />
+            </label>
+            <label>
+              单次处理上限
+              <input id="evoLimit" type="number" min="1" max="200" value="12" />
+            </label>
+            <label>
+              清理阈值（天）
+              <input id="cleanupDays" type="number" min="1" max="60" value="7" />
+            </label>
+            <label class="toggle-field">
+              <span>重新审核已处理帖子</span>
+              <input id="evoIncludeReviewed" type="checkbox" />
+            </label>
+          </div>
+
+          <div class="workflow-row">
+            <span class="workflow-step">候选帖子</span>
+            <span class="workflow-arrow">→</span>
+            <span class="workflow-step">AI 审核</span>
+            <span class="workflow-arrow">→</span>
+            <span class="workflow-step">生成知识文档</span>
+            <span class="workflow-arrow">→</span>
+            <span class="workflow-step">向量化入库</span>
+          </div>
+
+          <div class="ops-guidance-grid">
+            <div class="ops-guidance-item">
+              <strong>增量优先</strong>
+              <span>默认跳过已审核帖子，避免历史数据反复进入同一轮筛选。</span>
+            </div>
+            <div class="ops-guidance-item">
+              <strong>批次收敛</strong>
+              <span>单次上限控制工作量，剩余候选会自动留给下一批继续处理。</span>
+            </div>
+            <div class="ops-guidance-item">
+              <strong>可回溯复盘</strong>
+              <span>AI 入库审核和论坛采纳记录分开看，定位问题和纠错会更直接。</span>
+            </div>
+          </div>
+        </article>
+
+        <div id="opsSummary" class="metric-grid compact-grid"></div>
+
+        <div class="section-stack ops-stack">
+          <article class="module-card">
+            <div class="module-head">
+              <div>
+                <p class="module-kicker">AI Reviews</p>
+                <h4>知识库审核记录</h4>
+              </div>
+              <div class="module-actions">
+                <button id="btnLoadEvolutionReviews" class="btn ghost" type="button">刷新审核记录</button>
+              </div>
+            </div>
+            <div id="reviewSummary" class="pill-row"></div>
+            <div id="evolutionReviewTable" class="module-box"></div>
+          </article>
+
+          <article class="module-card">
+            <div class="module-head">
+              <div>
+                <p class="module-kicker">Adoptions</p>
+                <h4>论坛采纳记录</h4>
+              </div>
+              <div class="module-actions">
+                <button id="btnLoadAdoptions" class="btn ghost" type="button">刷新论坛采纳</button>
+              </div>
+            </div>
+            <div id="adoptionSummary" class="pill-row"></div>
+            <div id="adoptionTable" class="module-box"></div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./studio.js?v=20260409-3"></script>
+</body>
+</html>

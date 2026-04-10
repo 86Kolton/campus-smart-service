@@ -1,0 +1,59 @@
+{
+  "pages": [
+    "pages/home/home",
+    "pages/search/search",
+    "pages/knowledge/knowledge",
+    "pages/profile/profile",
+    "pages/web-login/web-login",
+    "pages/account/account",
+    "pages/edu/edu",
+    "pages/topic/topic",
+    "pages/groups/groups",
+    "pages/message-list/message-list",
+    "pages/profile-list/profile-list",
+    "pages/post/post",
+    "pages/errand/errand",
+    "pages/errand-compose/errand-compose"
+  ],
+  "window": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "校园助手",
+    "navigationBarBackgroundColor": "#e3e9f3",
+    "backgroundColor": "#dbe4f0",
+    "backgroundTextStyle": "light"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#6a7f99",
+    "selectedColor": "#244f83",
+    "backgroundColor": "#f2f6fb",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/home/home",
+        "text": "首页",
+        "iconPath": "assets/tab-gray.png",
+        "selectedIconPath": "assets/tab-blue.png"
+      },
+      {
+        "pagePath": "pages/search/search",
+        "text": "搜索",
+        "iconPath": "assets/tab-gray.png",
+        "selectedIconPath": "assets/tab-blue.png"
+      },
+      {
+        "pagePath": "pages/knowledge/knowledge",
+        "text": "知识库",
+        "iconPath": "assets/tab-gray.png",
+        "selectedIconPath": "assets/tab-blue.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "assets/tab-gray.png",
+        "selectedIconPath": "assets/tab-blue.png"
+      }
+    ]
+  },
+  "style": "v2"
+}

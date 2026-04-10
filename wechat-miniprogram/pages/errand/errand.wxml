@@ -1,0 +1,128 @@
+<view class="page-wrap page-wrap-sub">
+  <view class="surface-card errand-hero-card">
+    <view class="hero-brow">校园集市 · 代取代送</view>
+    <view class="hero-head">
+      <view>
+        <view class="section-title errand-title">跑腿任务</view>
+        <view class="section-sub hero-sub">发布后会优先推给附近同学，接单前不公开发布者联系方式。</view>
+      </view>
+      <button class="btn-primary hero-create-btn" bindtap="openComposer">发布需求</button>
+    </view>
+
+    <view class="hero-stats">
+      <view class="hero-stat {{activeStatus === 'open' ? 'is-active' : ''}}" data-status="open" bindtap="onTapHeroStat">
+        <view class="hero-stat-value">{{stats.open}}</view>
+        <view class="hero-stat-label">待接单</view>
+      </view>
+      <view class="hero-stat {{activeStatus === 'inprogress' ? 'is-active' : ''}}" data-status="inprogress" bindtap="onTapHeroStat">
+        <view class="hero-stat-value">{{stats.inprogress}}</view>
+        <view class="hero-stat-label">进行中</view>
+      </view>
+      <view class="hero-stat {{activeStatus === 'done' ? 'is-active' : ''}}" data-status="done" bindtap="onTapHeroStat">
+        <view class="hero-stat-value">{{stats.done}}</view>
+        <view class="hero-stat-label">已完成</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="surface-card errand-filter-card">
+    <view class="chip-row">
+      <view wx:for="{{filters}}" wx:key="id" class="chip chip-filter {{activeFilter === item.id ? 'is-active' : ''}}" data-filter="{{item.id}}" bindtap="onChangeFilter">{{item.label}}</view>
+    </view>
+  </view>
+
+  <view wx:if="{{selectedTask}}" class="surface-card errand-detail-card">
+    <view class="detail-head">
+      <view>
+        <view class="detail-brow">任务详情</view>
+        <view class="detail-title">{{selectedTask.title}}</view>
+      </view>
+      <view class="detail-status detail-status-{{selectedTask.status_tone}}">{{selectedTask.status_label}}</view>
+    </view>
+
+    <view class="detail-grid">
+      <view class="detail-chip">
+        <view class="detail-chip-label">奖励</view>
+        <view class="detail-chip-value">{{selectedTask.reward}}</view>
+      </view>
+      <view class="detail-chip">
+        <view class="detail-chip-label">时效</view>
+        <view class="detail-chip-value">{{selectedTask.time}}</view>
+      </view>
+      <view class="detail-chip">
+        <view class="detail-chip-label">取货点</view>
+        <view class="detail-chip-value">{{selectedTask.pickup_location}}</view>
+      </view>
+      <view class="detail-chip">
+        <view class="detail-chip-label">送达点</view>
+        <view class="detail-chip-value">{{selectedTask.destination}}</view>
+      </view>
+    </view>
+
+    <view class="detail-note">{{selectedTask.note || '发布者没有补充更多说明。'}}</view>
+
+    <view class="detail-contact-card">
+      <view class="detail-contact-title">发布者联系信息</view>
+      <view class="detail-contact-value">{{selectedTask.publisher_contact}}</view>
+      <view class="detail-contact-hint">仅发布者和已接单同学可见，其他人接单后才显示。</view>
+    </view>
+
+    <view wx:if="{{selectedTask.runner_name}}" class="detail-contact-card detail-contact-card-soft">
+      <view class="detail-contact-title">当前接单人</view>
+      <view class="detail-contact-value">{{selectedTask.runner_name}}</view>
+      <view class="detail-contact-hint">{{selectedTask.runner_contact || '已进入任务协同状态'}}</view>
+    </view>
+
+    <view class="timeline-list">
+      <view wx:for="{{selectedTask.timeline}}" wx:key="key" class="timeline-row">
+        <view class="timeline-dot"></view>
+        <view class="timeline-copy">
+          <view class="timeline-label">{{item.label}}</view>
+          <view class="timeline-value">{{item.value}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="detail-actions">
+      <button class="btn-ghost detail-btn" bindtap="clearSelection">收起详情</button>
+      <button wx:if="{{selectedTask.primary_action.key !== 'detail'}}" class="btn-primary detail-btn" data-id="{{selectedTask.id}}" data-action="{{selectedTask.primary_action.key}}" bindtap="runAction">{{selectedTask.primary_action.label}}</button>
+    </view>
+  </view>
+
+  <view class="errand-list">
+    <view wx:for="{{tasks}}" wx:key="id" class="surface-card errand-card {{selectedTask && selectedTask.id === item.id ? 'is-selected' : ''}}" data-id="{{item.id}}" bindtap="openTask">
+      <view class="errand-card-head">
+        <view class="errand-card-title">{{item.title}}</view>
+        <view class="errand-reward">{{item.reward}}</view>
+      </view>
+
+      <view class="errand-card-meta">
+        <text>{{item.time}}</text>
+        <text>{{item.relative_text}}</text>
+      </view>
+
+      <view class="errand-location">{{item.pickup_location}} → {{item.destination}}</view>
+
+      <view class="errand-chip-row">
+        <view class="tag-chip">{{item.tag}}</view>
+        <view class="status-chip status-chip-{{item.status_tone}}">{{item.status_label}}</view>
+      </view>
+
+      <view class="errand-note">{{item.note || '发布者未补充任务说明。'}}</view>
+      <view class="errand-contact">发布者：{{item.publisher_name}}</view>
+
+      <view class="errand-card-actions">
+        <button class="btn-ghost card-btn" catchtap="runAction" data-id="{{item.id}}" data-action="detail">查看详情</button>
+        <button class="{{item.primary_action.tone === 'primary' ? 'btn-primary card-btn' : 'btn-ghost card-btn'}}" catchtap="runAction" data-id="{{item.id}}" data-action="{{item.primary_action.key}}">{{item.primary_action.label}}</button>
+      </view>
+    </view>
+
+    <view wx:if="{{!tasks.length && !loading && !error}}" class="surface-card errand-empty-card">
+      <view class="empty">当前筛选下暂无跑腿需求</view>
+      <button class="btn-primary empty-create-btn" bindtap="openComposer">发布第一条任务</button>
+    </view>
+
+    <view wx:if="{{loading}}" class="surface-card empty">正在加载跑腿任务...</view>
+    <view wx:if="{{error}}" class="surface-card empty">{{error}}</view>
+  </view>
+</view>
