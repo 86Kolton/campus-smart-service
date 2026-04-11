@@ -61,11 +61,11 @@
   <text x="74" y="458" fill="#D9E6F5" font-size="20" font-weight="600" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">社区 / 搜索 / 教务 / 跑腿 / 消息 / 个人中心</text>
   <text x="74" y="490" fill="#9FD7F2" font-size="20" font-weight="600" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">FastAPI / RAG / 检索增强 / 引用回溯 / 后台运营</text>
 
-  <path d="M72 522H596" stroke="#D7E5F4" stroke-opacity="0.16"/>
-  <rect x="72" y="536" width="164" height="40" rx="20" fill="url(#badge)"/>
-  <text x="111" y="562" fill="#0D2942" font-size="22" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">开源展示版</text>
-  <text x="258" y="553" fill="#DFECF8" font-size="18" font-weight="700" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">MIT 许可 / CI 校验 / Release / Discussions</text>
-  <text x="258" y="575" fill="#97C8E6" font-size="14" font-weight="500" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">公共仓库仅保留展示与复现实验所需内容</text>
+  <path d="M72 524H596" stroke="#D7E5F4" stroke-opacity="0.16"/>
+  <rect x="72" y="530" width="164" height="40" rx="20" fill="url(#badge)"/>
+  <text x="111" y="556" fill="#0D2942" font-size="22" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">开源展示版</text>
+  <text x="258" y="551" fill="#DFECF8" font-size="18" font-weight="700" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">MIT 许可 / CI 校验 / Release / Discussions</text>
+  <text x="258" y="572" fill="#97C8E6" font-size="14" font-weight="500" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">公共仓库仅保留展示与复现实验所需内容</text>
 
   <g filter="url(#glow)" opacity="0.24">
     <rect x="774" y="78" width="424" height="528" rx="34" fill="#0F172A"/>
