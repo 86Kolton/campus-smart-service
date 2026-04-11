@@ -17,7 +17,6 @@
 
 ## 公开入口
 
-- 用户端演示：[rag-user.yyaxx.cc](https://rag-user.yyaxx.cc)
 - 版本发布：[GitHub Releases](https://github.com/86Kolton/campus-smart-service/releases)
 - 项目概览：[docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md)
 - 协作讨论：[GitHub Discussions](https://github.com/86Kolton/campus-smart-service/discussions)
