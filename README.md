@@ -5,28 +5,43 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/86Kolton/campus-smart-service/actions/workflows/ci.yml"><img src="https://github.com/86Kolton/campus-smart-service/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/86Kolton/campus-smart-service/releases"><img src="https://img.shields.io/github/v/release/86Kolton/campus-smart-service?color=0f766e" alt="Latest Release"></a>
   <img src="https://img.shields.io/badge/License-MIT-0f766e.svg" alt="MIT License">
   <img src="https://img.shields.io/badge/Backend-FastAPI-0ea5e9.svg" alt="FastAPI">
   <img src="https://img.shields.io/badge/Client-WeChat%20Mini%20Program-22c55e.svg" alt="WeChat Mini Program">
   <img src="https://img.shields.io/badge/Capability-RAG%20%2B%20Campus%20QA-f59e0b.svg" alt="RAG and Campus QA">
 </p>
 
-> 一个围绕高校校园场景构建的综合服务项目，整合了用户端 Web、管理后台、FastAPI 后端、知识库问答链路，以及微信小程序客户端。
+> 面向高校校园场景的综合服务项目，整合 Web 用户端、微信小程序、FastAPI 后端、管理后台 Studio，以及 RAG 知识库问答链路。
+
+## 公开入口
+
+- 用户端演示：[rag-user.yyaxx.cc](https://rag-user.yyaxx.cc)
+- 版本发布：[GitHub Releases](https://github.com/86Kolton/campus-smart-service/releases)
+- 项目概览：[docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md)
+- 协作讨论：[GitHub Discussions](https://github.com/86Kolton/campus-smart-service/discussions)
+
+## 项目定位
+
+- 面向高校场景的“校园综合服务 + AI 智能问答”混合型系统
+- 主要服务学生用户与内容运营管理员
+- Web 用户端、微信小程序和管理后台共用一套 FastAPI 后端与 RAG 能力
 
 ## 项目亮点
 
 - 校园社区内容流：发帖、评论、点赞、收藏、消息提醒
 - 校园服务场景：跑腿任务、个人主页、搜索与消息列表
-- 校园知识库问答：支持文档导入、切块、Embedding、检索、引用回溯
+- 校园知识问答：文档导入、切块、Embedding、检索、引用回溯
 - 管理端运营工具：知识库管理、文档上传、任务追踪、配置调试、日志查看
-- 多端协同：Web 用户端、后台管理端、微信小程序共用一套核心后端
+- 多端协同：Web 用户端、后台管理端、微信小程序共用核心后端
 
-## 适合什么场景
+## 机制亮点
 
-- 高校校园综合服务平台
-- 校园知识库问答与信息检索
-- 校园社区、跑腿、通知、互动类产品原型
-- 面向毕业设计、课程项目、校园数字化探索的落地型项目
+- 社区驱动的知识库自进化：高质量帖子可经过筛选、审核、去重和向量化后回灌知识库
+- 隐私与智能双轨路由：敏感教务类查询走本地业务链路，校园经验类问答走 RAG 检索与生成
+- 混合检索与查询扩展：向量检索、关键词召回、查询改写和重排组合工作
+- 多端统一交付：用户端、管理端、小程序共享一套 API 与核心服务
 
 ## 系统架构
 
@@ -60,11 +75,14 @@ flowchart LR
 |- backend/                  # FastAPI 后端、管理接口、RAG 链路、测试脚本
 |- wechat-miniprogram/       # 微信小程序客户端
 |- e2e/                      # Playwright 端到端脚本
-|- docs/assets/              # GitHub 展示资源
+|- docs/                     # GitHub 展示资源与项目概览
 |- index.html                # Web 用户端入口
 |- app.js                    # Web 用户端核心逻辑
 |- styles.css                # Web 用户端样式
+|- CHANGELOG.md              # 版本说明与发布记录
 |- CONTRIBUTING.md           # 贡献说明
+|- CODE_OF_CONDUCT.md        # 社区行为准则
+|- SUPPORT.md                # 使用支持与提问分流
 |- SECURITY.md               # 安全披露说明
 `- LICENSE                   # 开源许可证
 ```
@@ -125,30 +143,8 @@ Copy-Item .\backend\.env.example .\backend\.env
 
 - 打开微信开发者工具
 - 选择 `wechat-miniprogram/`
-- 使用自己的 AppID 或测试号导入
+- 使用自己的 `AppID` 或测试号导入
 - 配置合法域名与 API 地址
-
-## 开发说明
-
-### Web 用户端
-
-- 入口文件：`index.html`
-- 交互逻辑：`app.js`
-- 样式文件：`styles.css`
-
-### 后端
-
-- API 路由：`backend/app/api/`
-- 业务服务：`backend/app/services/`
-- 配置与安全：`backend/app/core/`
-- 数据模型：`backend/app/models/`
-- RAG 链路：`backend/app/rag/`
-
-### 小程序
-
-- 页面：`wechat-miniprogram/pages/`
-- 配置：`wechat-miniprogram/config/env.js`
-- 通用请求与鉴权：`wechat-miniprogram/utils/`
 
 ## 公共仓库边界
 
@@ -165,38 +161,30 @@ Copy-Item .\backend\.env.example .\backend\.env
 - 生产数据库
 - 上传文件与私有运行数据
 - 私有运维恢复资料
-- 服务器密码、API Key、私有证书
+- 服务器账户密码、API Key、私有证书
 
-## 当前开源补充
+## 协作与治理
 
-- `LICENSE`：采用 MIT License
-- `CONTRIBUTING.md`：补充协作规范
-- `SECURITY.md`：补充安全披露流程
-- `.github/workflows/ci.yml`：补充 GitHub Actions 持续集成
-- `.github/ISSUE_TEMPLATE/`：补充 Issue 表单模板
-- `.github/pull_request_template.md`：补充 PR 检查清单
-- `CHANGELOG.md`：补充版本说明与发布记录
-- GitHub 仓库已设置公开描述与主题标签
+- 贡献说明：[CONTRIBUTING.md](CONTRIBUTING.md)
+- 社区行为准则：[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- 使用支持与提问分流：[SUPPORT.md](SUPPORT.md)
+- 安全披露流程：[SECURITY.md](SECURITY.md)
+- 仓库讨论区：[GitHub Discussions](https://github.com/86Kolton/campus-smart-service/discussions)
 
-## 后续可扩展方向
+## 后续扩展方向
 
-- 增加 Docker 一键开发环境与生产部署模板
-- 增加 GitHub Actions 自动化测试
-- 增加截图、演示 GIF 和版本发布说明
-- 将 Web 端拆分为更清晰的模块结构
-- 将管理后台和用户端前端逐步组件化
+- 增加 Docker 一键开发环境与更完整的生产部署模板
+- 扩充 GitHub Actions 自动化测试和依赖更新
+- 增加截图、演示 GIF 与版本发布说明
+- 将 Web 用户端和管理后台逐步模块化、组件化
 
 ## 相关文档
 
+- [docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md)
 - [backend/README.md](backend/README.md)
 - [wechat-miniprogram/README.md](wechat-miniprogram/README.md)
 - [ADMIN_BEGINNER_GUIDE.md](ADMIN_BEGINNER_GUIDE.md)
 - [API_CONTRACT.md](API_CONTRACT.md)
-
-## 贡献与安全
-
-- 贡献流程见 [CONTRIBUTING.md](CONTRIBUTING.md)
-- 安全问题披露见 [SECURITY.md](SECURITY.md)
 
 ## 许可证
 

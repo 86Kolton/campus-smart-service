@@ -1,8 +1,11 @@
 blank_issues_enabled: false
 contact_links:
+  - name: 使用问题与方案讨论
+    url: https://github.com/86Kolton/campus-smart-service/discussions
+    about: 使用疑问、部署思路和非缺陷类讨论，优先在 Discussions 发起。
   - name: 安全问题披露
     url: https://github.com/86Kolton/campus-smart-service/security
     about: 如果你发现的是安全漏洞，请不要公开提交 Issue，优先走安全披露流程。
-  - name: 使用与协作说明
-    url: https://github.com/86Kolton/campus-smart-service/blob/main/CONTRIBUTING.md
-    about: 提交问题或 PR 之前，先阅读贡献说明。
+  - name: 支持与协作说明
+    url: https://github.com/86Kolton/campus-smart-service/blob/main/SUPPORT.md
+    about: 提交 Issue 或 PR 之前，先看支持入口和协作分流。

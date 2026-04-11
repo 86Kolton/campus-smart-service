@@ -6,9 +6,16 @@ The format loosely follows Keep a Changelog and uses semantic-style release tags
 
 ## [Unreleased]
 
-### Planned
+### Added
 
-- Ongoing feature, infrastructure, and documentation updates after the first formal public release
+- Refreshed GitHub hero SVG with wrapped copy and safer repository-cover layout
+- Added public project brief, community code of conduct, support guide, CODEOWNERS, and Dependabot config
+- Expanded README with project positioning, innovation highlights, governance, and public entry links
+
+### Changed
+
+- Issue entry points now route usage questions to Discussions and support guidance
+- Repository governance now has dedicated collaboration and maintenance documents
 
 ## [v0.1.0] - 2026-04-11
 
