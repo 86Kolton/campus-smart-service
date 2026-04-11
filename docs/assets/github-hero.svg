@@ -1,109 +1,98 @@
 <svg width="1280" height="640" viewBox="0 0 1280 640" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="84" y1="48" x2="1208" y2="604" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#06131F"/>
-      <stop offset="0.52" stop-color="#0B3152"/>
-      <stop offset="1" stop-color="#116774"/>
+    <linearGradient id="bg" x1="44" y1="28" x2="1238" y2="610" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#07121D"/>
+      <stop offset="0.46" stop-color="#0C3556"/>
+      <stop offset="1" stop-color="#165F6D"/>
     </linearGradient>
-    <linearGradient id="accent" x1="92" y1="528" x2="312" y2="572" gradientUnits="userSpaceOnUse">
+    <linearGradient id="panel" x1="810" y1="78" x2="1186" y2="548" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#16263C" stop-opacity="0.96"/>
+      <stop offset="1" stop-color="#102033" stop-opacity="0.90"/>
+    </linearGradient>
+    <linearGradient id="badge" x1="70" y1="516" x2="390" y2="572" gradientUnits="userSpaceOnUse">
       <stop stop-color="#67E8F9"/>
-      <stop offset="1" stop-color="#FBBF24"/>
+      <stop offset="0.58" stop-color="#9AE6B4"/>
+      <stop offset="1" stop-color="#FACC15"/>
     </linearGradient>
-    <linearGradient id="panelStroke" x1="760" y1="96" x2="1188" y2="520" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#67E8F9" stop-opacity="0.65"/>
-      <stop offset="1" stop-color="#A78BFA" stop-opacity="0.30"/>
+    <linearGradient id="panelStroke" x1="792" y1="74" x2="1198" y2="560" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#67E8F9" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#A78BFA" stop-opacity="0.24"/>
     </linearGradient>
-    <filter id="panelGlow" x="728" y="70" width="504" height="516" filterUnits="userSpaceOnUse">
-      <feGaussianBlur stdDeviation="18"/>
+    <filter id="softGlow" x="760" y="52" width="486" height="556" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="20"/>
     </filter>
   </defs>
 
   <rect width="1280" height="640" rx="34" fill="url(#bg)"/>
 
-  <g opacity="0.14">
-    <circle cx="158" cy="128" r="72" fill="#67E8F9"/>
-    <circle cx="1090" cy="120" r="110" fill="#F59E0B"/>
-    <circle cx="1128" cy="532" r="138" fill="#22C55E"/>
+  <g opacity="0.12">
+    <circle cx="164" cy="124" r="70" fill="#67E8F9"/>
+    <circle cx="1092" cy="116" r="108" fill="#F59E0B"/>
+    <circle cx="1120" cy="548" r="142" fill="#22C55E"/>
   </g>
 
-  <g opacity="0.12" stroke="#E2E8F0">
-    <path d="M80 518C210 468 340 460 470 506C600 552 716 558 864 490C968 442 1074 430 1200 460"/>
-    <path d="M104 214C230 174 358 182 484 238C610 294 724 298 856 252C968 214 1070 212 1170 238"/>
-    <path d="M118 304H1188"/>
-    <path d="M216 94V550"/>
-    <path d="M874 78V552"/>
+  <g opacity="0.10" stroke="#D7E5F4">
+    <path d="M82 514C226 458 352 454 476 498C606 544 722 548 872 484C986 436 1086 430 1200 456"/>
+    <path d="M106 218C236 172 366 180 492 236C622 292 736 296 862 252C978 212 1080 214 1176 238"/>
+    <path d="M116 304H1186"/>
+    <path d="M212 86V552"/>
+    <path d="M870 78V552"/>
   </g>
 
-  <rect x="70" y="72" width="470" height="42" rx="21" fill="#0F172ACC"/>
-  <circle cx="96" cy="93" r="6" fill="#22C55E"/>
-  <text x="114" y="100" fill="#C7D2FE" font-size="19" font-weight="600" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">Campus Service / Community / RAG</text>
+  <rect x="72" y="72" width="344" height="40" rx="20" fill="#101C30" fill-opacity="0.82" stroke="#67E8F9" stroke-opacity="0.18"/>
+  <circle cx="98" cy="92" r="6" fill="#22C55E"/>
+  <text x="116" y="99" fill="#D6E3FF" font-size="18" font-weight="700" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">Campus Service Platform</text>
 
-  <text x="70" y="212" fill="#F8FAFC" font-size="84" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">校园智服平台</text>
-  <text x="72" y="282" fill="#BAE6FD" font-size="28" font-weight="500" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">
-    <tspan x="72" dy="0">面向高校场景的校园服务、社区互动与</tspan>
-    <tspan x="72" dy="36">知识库问答一体化项目</tspan>
+  <text x="72" y="212" fill="#F8FAFC" font-size="86" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">校园智服平台</text>
+  <text x="74" y="278" fill="#C8E9FB" font-size="28" font-weight="500" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">
+    <tspan x="74" dy="0">面向高校场景的校园服务、社区互动与知识库问答</tspan>
+    <tspan x="74" dy="38">统一覆盖 Web 用户端、微信小程序与后台运营工作台</tspan>
   </text>
 
-  <rect x="72" y="348" width="198" height="42" rx="21" fill="#0F172ACC" stroke="#67E8F9" stroke-opacity="0.30"/>
-  <text x="100" y="375" fill="#E2E8F0" font-size="22" font-weight="600" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">Web 用户端</text>
+  <rect x="72" y="354" width="184" height="102" rx="24" fill="#101C30" fill-opacity="0.64" stroke="#67E8F9" stroke-opacity="0.28"/>
+  <text x="96" y="392" fill="#F8FAFC" font-size="28" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">用户端 Web</text>
+  <text x="96" y="422" fill="#B7DDF4" font-size="18" font-weight="500" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">社区 / 搜索 / 教务 / 跑腿</text>
 
-  <rect x="286" y="348" width="198" height="42" rx="21" fill="#0F172ACC" stroke="#67E8F9" stroke-opacity="0.30"/>
-  <text x="314" y="375" fill="#E2E8F0" font-size="22" font-weight="600" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">FastAPI 后端</text>
+  <rect x="274" y="354" width="184" height="102" rx="24" fill="#101C30" fill-opacity="0.64" stroke="#38BDF8" stroke-opacity="0.28"/>
+  <text x="298" y="392" fill="#F8FAFC" font-size="28" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">知识引擎</text>
+  <text x="298" y="422" fill="#B7DDF4" font-size="18" font-weight="500" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">RAG / 检索 / 重排 / 引用</text>
 
-  <rect x="500" y="348" width="220" height="42" rx="21" fill="#0F172ACC" stroke="#67E8F9" stroke-opacity="0.30"/>
-  <text x="520" y="374" fill="#E2E8F0" font-size="20" font-weight="600" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">管理后台 Studio</text>
+  <rect x="476" y="354" width="214" height="102" rx="24" fill="#101C30" fill-opacity="0.64" stroke="#A78BFA" stroke-opacity="0.28"/>
+  <text x="500" y="392" fill="#F8FAFC" font-size="28" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">运营后台 Studio</text>
+  <text x="500" y="422" fill="#CFBDFE" font-size="18" font-weight="500" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">配置 / 日志 / 任务 / 知识库</text>
 
-  <rect x="72" y="406" width="198" height="42" rx="21" fill="#0F172ACC" stroke="#FBBF24" stroke-opacity="0.30"/>
-  <text x="100" y="433" fill="#E2E8F0" font-size="22" font-weight="600" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">微信小程序</text>
+  <rect x="72" y="520" width="258" height="46" rx="23" fill="url(#badge)"/>
+  <text x="110" y="550" fill="#0C2841" font-size="24" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">Open Source Ready</text>
+  <text x="354" y="550" fill="#D6E3FF" font-size="17" font-weight="500" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">MIT / CI / Releases / Discussions</text>
 
-  <rect x="286" y="406" width="276" height="42" rx="21" fill="#0F172ACC" stroke="#FBBF24" stroke-opacity="0.30"/>
-  <text x="314" y="433" fill="#E2E8F0" font-size="22" font-weight="600" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">RAG / Embedding / Rerank / QA</text>
-
-  <rect x="72" y="518" width="250" height="46" rx="23" fill="url(#accent)"/>
-  <text x="104" y="548" fill="#082F49" font-size="23" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">Open Source Ready</text>
-
-  <g filter="url(#panelGlow)" opacity="0.26">
-    <rect x="758" y="94" width="444" height="452" rx="32" fill="#0F172A"/>
+  <g filter="url(#softGlow)" opacity="0.25">
+    <rect x="782" y="72" width="442" height="512" rx="34" fill="#0F172A"/>
   </g>
-  <rect x="774" y="108" width="414" height="420" rx="28" fill="#0F172ACC" stroke="url(#panelStroke)"/>
+  <rect x="794" y="86" width="418" height="484" rx="30" fill="url(#panel)" stroke="url(#panelStroke)"/>
 
-  <text x="806" y="162" fill="#F8FAFC" font-size="34" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">Campus Modules</text>
-  <text x="806" y="204" fill="#CFFAFE" font-size="20" font-weight="500" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">
-    <tspan x="806" dy="0">社区 / 跑腿 / 教务 / 消息</tspan>
-    <tspan x="806" dy="28">搜索 / 个人中心 / 知识问答</tspan>
-  </text>
+  <text x="828" y="150" fill="#F8FAFC" font-size="40" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">系统模块</text>
+  <text x="830" y="188" fill="#BEE9FB" font-size="20" font-weight="500" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">社区、跑腿、教务、消息、搜索、个人中心与知识问答</text>
 
-  <rect x="806" y="242" width="164" height="108" rx="24" fill="#082F49CC" stroke="#38BDF8" stroke-opacity="0.35"/>
-  <text x="832" y="286" fill="#F8FAFC" font-size="27" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">FastAPI</text>
-  <text x="832" y="316" fill="#BAE6FD" font-size="18" font-weight="500" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">
-    <tspan x="832" dy="0">API / Auth</tspan>
-    <tspan x="832" dy="24">Admin / Services</tspan>
-  </text>
+  <rect x="828" y="228" width="164" height="120" rx="24" fill="#0B3550" fill-opacity="0.82" stroke="#38BDF8" stroke-opacity="0.34"/>
+  <text x="852" y="270" fill="#F8FAFC" font-size="28" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">客户端</text>
+  <text x="852" y="300" fill="#BFE7FB" font-size="17" font-weight="600" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">Web / Feed / Search</text>
+  <text x="852" y="326" fill="#BFE7FB" font-size="17" font-weight="600" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">Profile / Message</text>
 
-  <rect x="992" y="242" width="164" height="108" rx="24" fill="#3F2A08CC" stroke="#FBBF24" stroke-opacity="0.45"/>
-  <text x="1022" y="286" fill="#F8FAFC" font-size="27" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">RAG</text>
-  <text x="1022" y="316" fill="#FDE68A" font-size="18" font-weight="500" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">
-    <tspan x="1022" dy="0">Retrieve / Rerank</tspan>
-    <tspan x="1022" dy="24">QA / Citation</tspan>
-  </text>
+  <rect x="1014" y="228" width="164" height="120" rx="24" fill="#48350F" fill-opacity="0.84" stroke="#FBBF24" stroke-opacity="0.40"/>
+  <text x="1038" y="270" fill="#F8FAFC" font-size="28" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">知识引擎</text>
+  <text x="1038" y="300" fill="#F7E18F" font-size="17" font-weight="600" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">RAG / Retrieve</text>
+  <text x="1038" y="326" fill="#F7E18F" font-size="17" font-weight="600" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">Rerank / Citation</text>
 
-  <rect x="806" y="366" width="164" height="108" rx="24" fill="#052E2BCC" stroke="#34D399" stroke-opacity="0.40"/>
-  <text x="830" y="410" fill="#F8FAFC" font-size="26" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">Mini Program</text>
-  <text x="830" y="440" fill="#A7F3D0" font-size="18" font-weight="500" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">
-    <tspan x="830" dy="0">WeChat Entry</tspan>
-    <tspan x="830" dy="24">Campus Client</tspan>
-  </text>
+  <rect x="828" y="368" width="164" height="120" rx="24" fill="#08352E" fill-opacity="0.84" stroke="#34D399" stroke-opacity="0.38"/>
+  <text x="852" y="410" fill="#F8FAFC" font-size="28" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">微信小程序</text>
+  <text x="852" y="440" fill="#A7F3D0" font-size="17" font-weight="600" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">Campus Entry</text>
+  <text x="852" y="466" fill="#A7F3D0" font-size="17" font-weight="600" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">WeChat Client</text>
 
-  <rect x="992" y="366" width="164" height="108" rx="24" fill="#172554CC" stroke="#A78BFA" stroke-opacity="0.40"/>
-  <text x="1022" y="410" fill="#F8FAFC" font-size="27" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">Studio</text>
-  <text x="1022" y="440" fill="#C4B5FD" font-size="18" font-weight="500" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">
-    <tspan x="1022" dy="0">Ops / Logs</tspan>
-    <tspan x="1022" dy="24">Config / Tasks</tspan>
-  </text>
+  <rect x="1014" y="368" width="164" height="120" rx="24" fill="#202A67" fill-opacity="0.84" stroke="#A78BFA" stroke-opacity="0.36"/>
+  <text x="1038" y="410" fill="#F8FAFC" font-size="28" font-weight="800" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">Studio</text>
+  <text x="1038" y="440" fill="#D7C1FF" font-size="17" font-weight="600" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">Config / Task</text>
+  <text x="1038" y="466" fill="#D7C1FF" font-size="17" font-weight="600" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">Ops / Logs</text>
 
-  <rect x="806" y="476" width="350" height="64" rx="24" fill="#0B1328" fill-opacity="0.72"/>
-  <text x="830" y="502" fill="#E2E8F0" font-size="16" font-weight="500" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">
-    <tspan x="830" dy="0">Public repo excludes secrets, runtime data,</tspan>
-    <tspan x="830" dy="22">and private backups.</tspan>
-  </text>
+  <rect x="828" y="510" width="350" height="38" rx="19" fill="#0B1328" fill-opacity="0.80"/>
+  <text x="850" y="535" fill="#E4EEF9" font-size="16" font-weight="600" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">公开仓库已剔除生产密钥、运行数据与私有备份</text>
 </svg>
