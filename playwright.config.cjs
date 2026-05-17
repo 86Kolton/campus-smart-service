@@ -6,7 +6,7 @@ module.exports = {
     timeout: 20_000,
   },
   use: {
-    headless: false,
+    headless: process.env.PLAYWRIGHT_HEADLESS === "1" ? true : false,
     viewport: { width: 1366, height: 900 },
     launchOptions: {
       slowMo: 220,

@@ -30,11 +30,18 @@ function buildTagArray(raw = "") {
 }
 
 function normalizeCommentItem(item = {}) {
+  const replyToAuthor = String(item.reply_to_author || item.replyToAuthor || "").trim();
+  const parentCommentId = String(item.parent_comment_id || item.parentCommentId || "").trim();
   return {
     ...item,
+    id: String(item.id || ""),
+    parent_comment_id: parentCommentId,
+    reply_to_author: replyToAuthor,
+    is_reply: Boolean(parentCommentId || replyToAuthor),
     image_url_full: normalizeImageUrl(item.image_url),
     likes: Number(item.likes || 0),
-    liked: Boolean(item.liked)
+    liked: Boolean(item.liked),
+    can_delete: Boolean(item.can_delete)
   };
 }
 
@@ -75,7 +82,9 @@ Page({
     comments: [],
     commentBusyId: "",
     commentInput: "",
+    commentInputFocus: false,
     commentImagePath: "",
+    replyTarget: null,
     commentSubmitting: false,
     loading: false,
     error: "",
@@ -214,6 +223,26 @@ Page({
   removeCommentImage() { this.setData({ commentImagePath: "" }); },
   removeDraftImage() { this.setData({ draftImagePath: "" }); },
 
+  startReply(event) {
+    const commentId = String(event.currentTarget.dataset.commentId || "");
+    if (!commentId) return;
+    const target = this.data.comments.find((item) => String(item.id || "") === commentId);
+    if (!target) return;
+    const author = String(target.author || target.reply_to_author || "@匿名同学").trim() || "@匿名同学";
+    this.setData({
+      replyTarget: { id: commentId, author },
+      commentInputFocus: true
+    });
+    wx.pageScrollTo({ selector: "#commentComposer", duration: 240 });
+  },
+
+  clearReplyTarget() {
+    this.setData({
+      replyTarget: null,
+      commentInputFocus: true
+    });
+  },
+
   async toggleCommentLike(event) {
     const commentId = String(event.currentTarget.dataset.commentId || "");
     if (!commentId || this.data.commentBusyId === commentId) return;
@@ -266,24 +295,37 @@ Page({
   async sendComment() {
     const content = String(this.data.commentInput || "").trim();
     const imagePath = String(this.data.commentImagePath || "").trim();
+    const replyTarget = this.data.replyTarget && this.data.replyTarget.id
+      ? {
+        reply_to_comment_id: String(this.data.replyTarget.id),
+        reply_to_author: String(this.data.replyTarget.author || "")
+      }
+      : {};
     if (!content && !imagePath) return wx.showToast({ title: "请输入评论或上传图片", icon: "none" });
     if (this.data.commentSubmitting) return;
     this.setData({ commentSubmitting: true });
+    const payload = { post_id: this.data.id, content, client_id: `wx-${Date.now()}`, ...replyTarget };
     try {
       if (imagePath) {
         await uploadFile({
           url: "/api/client/feed/comment/create-with-image",
           filePath: imagePath,
           name: "image",
-          formData: { post_id: this.data.id, content, client_id: `wx-${Date.now()}` }
+          formData: payload
         });
       } else {
-        await apiRequest({ url: "/api/client/feed/comment/create", method: "POST", data: { post_id: this.data.id, content, client_id: `wx-${Date.now()}` } });
+        await apiRequest({ url: "/api/client/feed/comment/create", method: "POST", data: payload });
       }
-      this.setData({ commentInput: "", commentImagePath: "", commentSubmitting: false });
+      this.setData({
+        commentInput: "",
+        commentImagePath: "",
+        replyTarget: null,
+        commentInputFocus: false,
+        commentSubmitting: false
+      });
       await this.loadComments();
       await this.loadPost();
-      wx.showToast({ title: "评论已发送", icon: "success" });
+      wx.showToast({ title: replyTarget.reply_to_comment_id ? "回复已发送" : "评论已发送", icon: "success" });
     } catch (error) {
       this.setData({ commentSubmitting: false });
       wx.showToast({ title: error && error.message || "评论失败", icon: "none" });
@@ -344,6 +386,10 @@ Page({
     this.setData({ postDeleting: true });
     try {
       await apiRequest({ url: "/api/client/feed/post/delete", method: "POST", data: { post_id: this.data.id } });
+      const app = getApp();
+      app.globalData.feedNeedsRefresh = true;
+      app.globalData.profileNeedsRefresh = true;
+      app.globalData.messageNeedsRefresh = true;
       this.setData({ postDeleting: false });
       wx.showToast({ title: "原帖已删除", icon: "success" });
       setTimeout(() => {

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import and_, delete, func, or_, select, update
 
 from app.core.database import SessionLocal
 from app.models.comment import Comment
@@ -251,8 +251,8 @@ class CommentService:
                             MessageNotification.receiver_user_id == int(comment.author_id),
                             MessageNotification.type == "likes",
                             MessageNotification.source_post_id == int(comment.post_id),
+                            MessageNotification.source_comment_id == raw_comment_id,
                             MessageNotification.source_user_id == int(user_id),
-                            MessageNotification.content == content,
                         )
                     ).scalar_one_or_none()
                     if not notification:
@@ -263,6 +263,7 @@ class CommentService:
                                 receiver_user_id=int(comment.author_id),
                                 type="likes",
                                 source_post_id=int(comment.post_id),
+                                source_comment_id=raw_comment_id,
                                 source_user_id=int(user_id),
                                 content=content,
                                 is_read=False,
@@ -284,7 +285,13 @@ class CommentService:
                             MessageNotification.type == "likes",
                             MessageNotification.source_post_id == int(comment.post_id),
                             MessageNotification.source_user_id == int(user_id),
-                            MessageNotification.content == _comment_notification_content(comment),
+                            or_(
+                                MessageNotification.source_comment_id == raw_comment_id,
+                                and_(
+                                    MessageNotification.source_comment_id.is_(None),
+                                    MessageNotification.content == _comment_notification_content(comment),
+                                ),
+                            ),
                         )
                     )
 
@@ -347,6 +354,12 @@ class CommentService:
 
             deleted_count = 0
             if target_ids:
+                target_comments = db.execute(
+                    select(Comment).where(
+                        Comment.post_id == raw_post_id,
+                        Comment.id.in_(list(target_ids)),
+                    )
+                ).scalars().all()
                 result = db.execute(
                     update(Comment)
                     .where(
@@ -359,6 +372,19 @@ class CommentService:
                 deleted_count = int(result.rowcount or 0)
                 db.execute(delete(CommentAsset).where(CommentAsset.comment_id.in_(list(target_ids))))
                 db.execute(delete(CommentLike).where(CommentLike.comment_id.in_(list(target_ids))))
+                db.execute(delete(MessageNotification).where(MessageNotification.source_comment_id.in_(list(target_ids))))
+                hidden_notice_clauses = [
+                    and_(
+                        MessageNotification.receiver_user_id == int(comment.author_id),
+                        MessageNotification.type == "likes",
+                        MessageNotification.source_post_id == raw_post_id,
+                        MessageNotification.source_comment_id.is_(None),
+                        MessageNotification.content == _comment_notification_content(comment),
+                    )
+                    for comment in target_comments
+                ]
+                if hidden_notice_clauses:
+                    db.execute(delete(MessageNotification).where(or_(*hidden_notice_clauses)))
 
             visible_count = int(
                 db.scalar(

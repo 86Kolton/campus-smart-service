@@ -6,14 +6,17 @@ import time
 from app.core.config import settings
 from app.rag.retriever.context_builder import context_builder
 from app.rag.retriever.hybrid_retriever import hybrid_retriever
+from app.services.knowledge_cache_service import knowledge_cache_service
 from app.services.qa_provider import qa_provider
 from app.services.rerank_provider import rerank_provider
+from app.services.store import store
 
 
 class RAGPipeline:
     _AMBIGUOUS_RE = re.compile(r"^[\dA-Za-z\W_]{1,4}$")
     _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
     _SPACE_RE = re.compile(r"\s+")
+    _POSTAL_CODE_RE = re.compile(r"(?:邮编|邮政编码)[：:\s]*([0-9]{6})")
     _GREETINGS = {
         "hi",
         "hello",
@@ -121,6 +124,17 @@ class RAGPipeline:
     def _build_greeting_answer(self) -> str:
         return "可以直接问我校区、教务、课表、选课、成绩单、图书馆、学院信息和校园服务。像“成绩单打印”“选课入口”“五四路校区邮编”这样问，回答会更快更准。"
 
+    def _build_precise_fact_answer(self, query: str, contexts: list[str]) -> str:
+        compact = self._compact(query)
+        if "邮编" not in compact and "邮政编码" not in compact:
+            return ""
+
+        for context in contexts:
+            match = self._POSTAL_CODE_RE.search(str(context or ""))
+            if match:
+                return f"河北大学的邮编是 {match.group(1)}。"
+        return ""
+
     def _recent_user_topic(self, history: list[dict], current_query: str) -> str:
         current = self._compact(current_query)
         for item in reversed(history or []):
@@ -203,6 +217,21 @@ class RAGPipeline:
             item.pop("_rank", None)
         return ranked[:limit]
 
+    def _retrieve_candidates(self, original_query: str, retrieval_query: str, kb_id: int, top_k: int) -> list[dict]:
+        primary_candidates = hybrid_retriever.retrieve(query=original_query, kb_id=kb_id, top_k=top_k)
+        if self._compact(retrieval_query) != self._compact(original_query):
+            expanded_candidates = hybrid_retriever.retrieve(query=retrieval_query, kb_id=kb_id, top_k=top_k)
+            return self._merge_candidates(primary_candidates, expanded_candidates, limit=top_k)
+        return primary_candidates
+
+    def _retrieve_with_cache_repair(self, original_query: str, retrieval_query: str, kb_id: int, top_k: int) -> list[dict]:
+        candidates = self._retrieve_candidates(original_query, retrieval_query, kb_id, top_k)
+        if candidates or store.chunks.get(int(kb_id)):
+            return candidates
+
+        knowledge_cache_service.rebuild_chunks()
+        return self._retrieve_candidates(original_query, retrieval_query, kb_id, top_k)
+
     async def ask(self, query: str, history: list[dict], kb_id: int, deep_thinking: bool = False) -> dict:
         start = time.perf_counter()
         original_query = str(query or "").strip()
@@ -210,12 +239,7 @@ class RAGPipeline:
         retrieval_query = self._rewrite_query(original_query, history)
         top_k = 30 if deep_thinking else 20
 
-        primary_candidates = hybrid_retriever.retrieve(query=original_query, kb_id=kb_id, top_k=top_k)
-        if self._compact(retrieval_query) != self._compact(original_query):
-            expanded_candidates = hybrid_retriever.retrieve(query=retrieval_query, kb_id=kb_id, top_k=top_k)
-            candidates = self._merge_candidates(primary_candidates, expanded_candidates, limit=top_k)
-        else:
-            candidates = primary_candidates
+        candidates = self._retrieve_with_cache_repair(original_query, retrieval_query, kb_id, top_k)
 
         if deep_thinking and settings.rerank_provider != "none":
             reranked = await rerank_provider.rerank(query=original_query, candidates=candidates, top_k=12)
@@ -234,10 +258,14 @@ class RAGPipeline:
             rerank_used = False
 
         contexts = context_builder.build(reranked, limit=6)
+        precise_fact_answer = self._build_precise_fact_answer(original_query, contexts)
 
         if self._is_greeting(original_query):
             answer = self._build_greeting_answer()
             model_name = "kb-guide"
+        elif precise_fact_answer:
+            answer = precise_fact_answer
+            model_name = "kb-extract"
         elif generic_intent and contexts:
             answer = self._build_intent_answer(generic_intent)
             model_name = "kb-intent"

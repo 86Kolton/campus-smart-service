@@ -7,6 +7,9 @@ import httpx
 
 from app.core.config import settings
 
+# 匹配 Qwen3 等模型可能返回的 <think>...</think> 思考标签
+_THINK_TAG_RE = re.compile(r"<think>.*?</think>\s*", re.S)
+
 
 def _clamp_score(value: object, default: int = 0) -> int:
     try:
@@ -25,6 +28,11 @@ def _normalize_model_score(value: object, default: int = 0) -> int:
     if numeric <= 10:
         numeric *= 10
     return _clamp_score(numeric, default=default)
+
+
+def _strip_think_tags(text: str) -> str:
+    """剥离模型可能返回的 <think>...</think> 思考标签，只保留JSON正文。"""
+    return _THINK_TAG_RE.sub("", text).strip()
 
 
 class EvolutionReviewService:
@@ -206,6 +214,8 @@ class EvolutionReviewService:
             ],
             "temperature": 0.1,
             "response_format": {"type": "json_object"},
+            # 关闭 Qwen3 系列模型的内置思考模式，避免返回 <think> 标签干扰 JSON 解析
+            "enable_thinking": False,
         }
         headers = {"Authorization": f"Bearer {provider['api_key']}"}
         try:
@@ -213,7 +223,9 @@ class EvolutionReviewService:
                 resp = client.post(f"{provider['base_url']}/chat/completions", json=payload, headers=headers)
                 resp.raise_for_status()
                 data = resp.json()
-            content = str(data["choices"][0]["message"]["content"]).strip()
+            raw_content = str(data["choices"][0]["message"]["content"]).strip()
+            # 兜底过滤：先剥离可能的 <think>...</think> 标签再提取 JSON
+            content = _strip_think_tags(raw_content)
             match = self._JSON_RE.search(content)
             parsed = json.loads(match.group(0) if match else content)
             return self._normalize_payload(parsed, post=post, threshold=threshold, reviewer_model=provider["model"])

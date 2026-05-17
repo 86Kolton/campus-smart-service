@@ -32,6 +32,9 @@ Page({
 
   onShow() {
     const app = getApp();
+    if (app.globalData && app.globalData.messageNeedsRefresh) {
+      app.globalData.messageNeedsRefresh = false;
+    }
     app.ensureSession().finally(() => {
       this.loadItems();
     });

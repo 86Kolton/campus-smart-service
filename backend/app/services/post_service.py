@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import and_, delete, func, or_, select, update
 
 from app.core.database import SessionLocal
 from app.models.comment import Comment
@@ -35,6 +35,14 @@ def _post_notification_content(post: Post) -> str:
     return f"帖子赞：{title[:60]}{suffix}"
 
 
+def _comment_notification_content(comment: Comment) -> str:
+    body = str(comment.content or "").replace("\n", " ").strip()
+    if not body:
+        body = "图片评论"
+    suffix = "..." if len(body) > 48 else ""
+    return f"评论赞：{body[:48]}{suffix}"
+
+
 def _relative_time(dt: datetime | None) -> str:
     if not dt:
         return "刚刚"
@@ -59,7 +67,102 @@ def _parse_post_id(post_id: str) -> int:
     return int(str(post_id).replace("p-", ""))
 
 
+def _engagement_score(post: Post) -> int:
+    likes = int(post.likes_count or 0)
+    comments = int(post.comments_count or 0)
+    adopted_bonus = 12 if bool(post.adopted) else 0
+    return likes * 3 + comments * 5 + adopted_bonus
+
+
+def _format_hot_heat(score: int) -> str:
+    safe_score = max(0, int(score or 0))
+    if safe_score >= 1000:
+        return f"{safe_score / 1000:.1f}k"
+    return f"{safe_score}热"
+
+
+def _as_utc_datetime(value: datetime | None, fallback: datetime | None = None) -> datetime:
+    if not isinstance(value, datetime):
+        return fallback or datetime.min.replace(tzinfo=timezone.utc)
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 class PostService:
+    def list_home_hot_topics(self, limit: int = 3) -> list[dict]:
+        safe_limit = max(1, min(int(limit or 3), 12))
+        with SessionLocal() as db:
+            rows = (
+                db.execute(
+                    select(Post)
+                    .where(Post.status == "published")
+                    .order_by(Post.created_at.desc(), Post.id.desc())
+                )
+                .scalars()
+                .all()
+            )
+
+        if not rows:
+            return []
+
+        now = datetime.now(tz=timezone.utc)
+        recent_cutoff = now - timedelta(days=1)
+        recent_posts: list[Post] = []
+        fallback_posts: list[Post] = []
+
+        for row in rows:
+            created_at = _as_utc_datetime(row.created_at, now - timedelta(days=365))
+
+            if created_at >= recent_cutoff:
+                recent_posts.append(row)
+            fallback_posts.append(row)
+
+        recent_posts.sort(
+            key=lambda item: (
+                _engagement_score(item),
+                _as_utc_datetime(item.created_at),
+                int(item.id or 0),
+            ),
+            reverse=True,
+        )
+        fallback_posts.sort(
+            key=lambda item: (
+                _engagement_score(item),
+                _as_utc_datetime(item.created_at),
+                int(item.id or 0),
+            ),
+            reverse=True,
+        )
+
+        selected: list[Post] = []
+        seen_ids: set[int] = set()
+        for bucket in (recent_posts, fallback_posts):
+            for row in bucket:
+                post_id = int(row.id or 0)
+                if not post_id or post_id in seen_ids:
+                    continue
+                selected.append(row)
+                seen_ids.add(post_id)
+                if len(selected) >= safe_limit:
+                    break
+            if len(selected) >= safe_limit:
+                break
+
+        return [
+            {
+                "id": f"hot-{index + 1}",
+                "title": str(row.title or "").strip() or f"帖子 {int(row.id)}",
+                "heat": _format_hot_heat(_engagement_score(row)),
+                "post_id": f"p-{int(row.id)}",
+                "source_type": "feed",
+                "query": str(row.title or "").strip(),
+                "is_recent": _as_utc_datetime(row.created_at, now - timedelta(days=365)) >= recent_cutoff,
+                "created_at": _as_utc_datetime(row.created_at, now - timedelta(days=365)).isoformat(),
+            }
+            for index, row in enumerate(selected)
+        ]
+
     def _load_knowledge_ready_map(self, db, post_ids: list[int]) -> dict[int, bool]:
         if not post_ids:
             return {}
@@ -723,19 +826,20 @@ class PostService:
 
             pruned_count = 0
             if prune_other_comments:
+                others = db.execute(
+                    select(Comment).where(
+                        Comment.post_id == raw_post_id,
+                        Comment.id != raw_comment_id,
+                    )
+                ).scalars().all()
+                pruned_count = len(others)
+                other_ids = [int(row.id) for row in others]
                 if hard_delete:
-                    others = db.execute(
-                        select(Comment).where(
-                            Comment.post_id == raw_post_id,
-                            Comment.id != raw_comment_id,
-                        )
-                    ).scalars().all()
-                    pruned_count = len(others)
-                    other_ids = [int(row.id) for row in others]
                     if other_ids:
                         db.query(CommentAsset).filter(CommentAsset.comment_id.in_(other_ids)).delete(
                             synchronize_session=False
                         )
+                        db.execute(delete(CommentLike).where(CommentLike.comment_id.in_(other_ids)))
                     for row in others:
                         db.delete(row)
                 else:
@@ -745,6 +849,23 @@ class PostService:
                         .values(status="hidden")
                     )
                     pruned_count = int(result.rowcount or 0)
+                    if other_ids:
+                        db.execute(delete(CommentLike).where(CommentLike.comment_id.in_(other_ids)))
+                if other_ids:
+                    db.execute(delete(MessageNotification).where(MessageNotification.source_comment_id.in_(other_ids)))
+
+                hidden_notice_clauses = [
+                    and_(
+                        MessageNotification.receiver_user_id == int(row.author_id),
+                        MessageNotification.type == "likes",
+                        MessageNotification.source_post_id == raw_post_id,
+                        MessageNotification.source_comment_id.is_(None),
+                        MessageNotification.content == _comment_notification_content(row),
+                    )
+                    for row in others
+                ]
+                if hidden_notice_clauses:
+                    db.execute(delete(MessageNotification).where(or_(*hidden_notice_clauses)))
 
             visible_count = int(
                 db.scalar(

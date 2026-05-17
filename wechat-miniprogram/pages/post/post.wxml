@@ -82,29 +82,41 @@
           <view wx:if="{{item.content}}" class="comment-content">{{item.content}}</view>
           <image wx:if="{{item.image_url_full}}" class="comment-image" src="{{item.image_url_full}}" mode="widthFix" bindtap="previewImage" data-url="{{item.image_url_full}}" />
           <view class="comment-actions">
-            <button
-              class="btn-ghost comment-like {{item.liked ? 'is-on' : ''}}"
-              size="mini"
-              data-comment-id="{{item.id}}"
-              bindtap="toggleCommentLike"
-              loading="{{commentBusyId === item.id}}"
-              disabled="{{commentBusyId === item.id}}"
-            >{{item.liked ? '已赞' : '点赞'}} {{item.likes}}</button>
+            <view class="comment-action-left">
+              <button class="btn-ghost comment-reply-btn" size="mini" data-comment-id="{{item.id}}" catchtap="startReply">回复</button>
+              <button
+                class="btn-ghost comment-like {{item.liked ? 'is-on' : ''}}"
+                size="mini"
+                data-comment-id="{{item.id}}"
+                catchtap="toggleCommentLike"
+                loading="{{commentBusyId === item.id}}"
+                disabled="{{commentBusyId === item.id}}"
+              >{{item.liked ? '已赞' : '点赞'}} {{item.likes}}</button>
+            </view>
             <button wx:if="{{item.can_delete}}" class="btn-ghost comment-delete" size="mini" data-comment-id="{{item.id}}" bindtap="deleteComment">删除</button>
           </view>
         </view>
       </view>
     </view>
 
-    <view class="surface-card composer-card">
-      <view class="section-title detail-section-title">发表评论</view>
-      <textarea class="comment-input" value="{{commentInput}}" maxlength="200" auto-height="true" placeholder="说点什么，例如补充时间、地点或排队情况。" bindinput="onInputComment" />
+    <view id="commentComposer" class="surface-card composer-card">
+      <view class="composer-headline">
+        <view>
+          <view class="section-title detail-section-title">{{replyTarget ? '发表回复' : '发表评论'}}</view>
+          <view class="section-caption">{{replyTarget ? '回复会显示在评论区，并带上回复对象。' : '补充时间、地点或经验，帮助后来同学判断。'}}</view>
+        </view>
+      </view>
+      <view wx:if="{{replyTarget}}" class="reply-target-bar">
+        <view class="reply-target-copy">正在回复 <text>{{replyTarget.author}}</text></view>
+        <button class="reply-cancel-btn" size="mini" catchtap="clearReplyTarget">取消</button>
+      </view>
+      <textarea class="comment-input" value="{{commentInput}}" maxlength="200" auto-height="true" focus="{{commentInputFocus}}" placeholder="{{replyTarget ? '回复对方，例如补充你的看法或进一步说明。' : '说点什么，例如补充时间、地点或排队情况。'}}" bindinput="onInputComment" />
       <view class="upload-toolbar">
         <button class="btn-ghost tool-btn" bindtap="chooseCommentImage">上传图片</button>
         <button wx:if="{{commentImagePath}}" class="btn-ghost tool-btn" bindtap="removeCommentImage">移除图片</button>
       </view>
       <image wx:if="{{commentImagePath}}" class="upload-preview" src="{{commentImagePath}}" mode="aspectFill" bindtap="previewImage" data-url="{{commentImagePath}}" />
-      <button class="btn-primary submit-btn" bindtap="sendComment" loading="{{commentSubmitting}}" disabled="{{commentSubmitting}}">发送评论</button>
+      <button class="btn-primary submit-btn" bindtap="sendComment" loading="{{commentSubmitting}}" disabled="{{commentSubmitting}}">{{replyTarget ? '发送回复' : '发送评论'}}</button>
     </view>
   </block>
 

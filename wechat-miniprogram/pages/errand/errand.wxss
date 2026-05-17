@@ -4,6 +4,55 @@
     linear-gradient(145deg, #f8fbff, #eef5ff 68%, #f9fcff);
 }
 
+.errand-hero-card,
+.hero-head,
+.hero-stats,
+.hero-stat,
+.errand-filter-card,
+.errand-detail-card,
+.detail-head,
+.detail-grid,
+.detail-chip,
+.detail-note,
+.detail-contact-card,
+.timeline-copy,
+.detail-actions,
+.errand-list,
+.errand-card,
+.errand-card-head,
+.errand-card-meta,
+.errand-chip-row,
+.errand-card-actions {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.hero-brow,
+.errand-title,
+.hero-sub,
+.hero-stat-value,
+.hero-stat-label,
+.chip-filter,
+.detail-brow,
+.detail-title,
+.detail-status,
+.detail-chip-value,
+.detail-note,
+.detail-contact-value,
+.detail-contact-hint,
+.timeline-value,
+.errand-card-title,
+.errand-reward,
+.errand-location,
+.tag-chip,
+.status-chip,
+.errand-note,
+.errand-contact {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
 .hero-brow {
   display: inline-flex;
   align-items: center;
@@ -24,6 +73,11 @@
   gap: 16rpx;
 }
 
+.hero-head > view,
+.detail-head > view {
+  min-width: 0;
+}
+
 .errand-title {
   font-size: 44rpx;
 }
@@ -31,7 +85,11 @@
 .hero-create-btn {
   flex-shrink: 0;
   min-width: 164rpx;
+  max-width: 220rpx;
   padding: 0 22rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hero-sub {
@@ -51,6 +109,7 @@
   background: rgba(255, 255, 255, 0.86);
   padding: 18rpx 12rpx;
   text-align: center;
+  overflow: hidden;
   transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
 
@@ -79,6 +138,8 @@
 }
 
 .chip-filter {
+  box-sizing: border-box;
+  max-width: 100%;
   min-height: 62rpx;
   padding: 0 22rpx;
   display: flex;
@@ -121,6 +182,7 @@
 .detail-status {
   flex-shrink: 0;
   min-width: 104rpx;
+  max-width: 176rpx;
   min-height: 56rpx;
   padding: 0 18rpx;
   border-radius: 999rpx;
@@ -128,7 +190,9 @@
   align-items: center;
   justify-content: center;
   font-size: 22rpx;
+  line-height: 1.28;
   font-weight: 700;
+  text-align: center;
 }
 
 .detail-status-blue {
@@ -167,6 +231,7 @@
   border: 1rpx solid #dbe5f1;
   background: #f9fbff;
   padding: 16rpx;
+  overflow: hidden;
 }
 
 .detail-chip-label {
@@ -243,6 +308,7 @@
 
 .timeline-copy {
   min-width: 0;
+  max-width: 100%;
 }
 
 .timeline-label {
@@ -266,20 +332,29 @@
 .detail-btn,
 .card-btn,
 .empty-create-btn {
+  box-sizing: border-box;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .errand-list {
   margin-top: 18rpx;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14rpx;
 }
 
 .errand-card {
   margin-top: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12rpx;
   border-color: #d9e5f1;
+  overflow: hidden;
 }
 
 .errand-card.is-selected {
@@ -305,9 +380,12 @@
 
 .errand-reward {
   flex-shrink: 0;
+  max-width: 180rpx;
   font-size: 30rpx;
+  line-height: 1.28;
   font-weight: 700;
   color: #1d6f59;
+  text-align: right;
 }
 
 .errand-card-meta {
@@ -332,6 +410,8 @@
 
 .tag-chip,
 .status-chip {
+  box-sizing: border-box;
+  max-width: 100%;
   min-height: 48rpx;
   padding: 0 18rpx;
   border-radius: 999rpx;
@@ -339,7 +419,9 @@
   align-items: center;
   justify-content: center;
   font-size: 22rpx;
+  line-height: 1.28;
   font-weight: 700;
+  white-space: normal;
 }
 
 .tag-chip {
@@ -385,7 +467,7 @@
 
 .errand-card-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10rpx;
 }
 

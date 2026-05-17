@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import json
+from pathlib import Path
 
 from sqlalchemy import delete, func, inspect, select, text
 
@@ -14,7 +15,7 @@ from app.models.comment_asset import CommentAsset  # noqa: F401
 from app.models.comment_like import CommentLike  # noqa: F401
 from app.models.errand_task import ErrandTask  # noqa: F401
 from app.models.evolution_review import EvolutionReview  # noqa: F401
-from app.models.knowledge import KnowledgeBase
+from app.models.knowledge import KnowledgeBase, KnowledgeDocument
 from app.models.message import MessageNotification
 from app.models.moderation_log import ModerationLog  # noqa: F401
 from app.models.post_adoption import PostAdoption  # noqa: F401
@@ -309,6 +310,11 @@ def _ensure_schema_extensions() -> None:
         if "likes_count" not in columns:
             conn.execute(text("ALTER TABLE comments ADD COLUMN likes_count INTEGER DEFAULT 0"))
 
+        if "message_notifications" in tables:
+            message_columns = {col["name"] for col in inspector.get_columns("message_notifications")}
+            if "source_comment_id" not in message_columns:
+                conn.execute(text("ALTER TABLE message_notifications ADD COLUMN source_comment_id BIGINT"))
+
         if "comment_likes" not in tables:
             conn.execute(
                 text(
@@ -587,7 +593,7 @@ def _reset_demo_saves(db) -> None:
         )
 
 
-def _ensure_knowledge_base(db) -> None:
+def _ensure_knowledge_base(db) -> int:
     existing = db.execute(select(KnowledgeBase).order_by(KnowledgeBase.id.asc())).scalars().first()
     if existing:
         existing.name = "校园通用知识库"
@@ -598,11 +604,12 @@ def _ensure_knowledge_base(db) -> None:
         existing.chunk_count = int(existing.chunk_count or 0)
         existing.created_by = int(existing.created_by or 1)
         db.add(existing)
-        return
+        return int(existing.id)
 
+    kb_id = _next_id(db, KnowledgeBase)
     db.add(
         KnowledgeBase(
-            id=_next_id(db, KnowledgeBase),
+            id=kb_id,
             name="校园通用知识库",
             description="教务、图书馆、生活服务",
             status="active",
@@ -612,6 +619,72 @@ def _ensure_knowledge_base(db) -> None:
             created_by=1,
         )
     )
+    return int(kb_id)
+
+
+def _ensure_seed_knowledge_documents(db, kb_id: int) -> None:
+    seed_dir = Path(__file__).resolve().parents[2] / "data" / "seed_kb" / "hebei_university"
+    seed_files = sorted(seed_dir.glob("*.md"))
+    if not seed_files:
+        return
+
+    names = [path.name for path in seed_files]
+    existing_docs = {
+        row.file_name: row
+        for row in db.execute(
+            select(KnowledgeDocument).where(
+                KnowledgeDocument.kb_id == int(kb_id),
+                KnowledgeDocument.file_name.in_(names),
+            )
+        ).scalars()
+    }
+    next_doc_id = _next_id(db, KnowledgeDocument)
+
+    for path in seed_files:
+        row = existing_docs.get(path.name)
+        if row is None:
+            row = KnowledgeDocument(
+                id=next_doc_id,
+                kb_id=int(kb_id),
+                file_name=path.name,
+                file_ext="md",
+                file_size=path.stat().st_size,
+                storage_path=str(path.resolve()),
+                mime_type="text/markdown",
+                status="indexed",
+                chunk_count=1,
+                error_message="",
+                uploaded_by=1,
+            )
+            next_doc_id += 1
+        else:
+            # Migration-safe repair: bundled seed docs must point at the current server path.
+            row.file_ext = "md"
+            row.file_size = path.stat().st_size
+            row.storage_path = str(path.resolve())
+            row.mime_type = "text/markdown"
+            row.status = "indexed"
+            row.chunk_count = max(1, int(row.chunk_count or 0))
+            row.error_message = ""
+            row.uploaded_by = int(row.uploaded_by or 1)
+        db.add(row)
+
+    db.flush()
+    kb = db.get(KnowledgeBase, int(kb_id))
+    if kb:
+        kb.doc_count = int(
+            db.scalar(select(func.count()).select_from(KnowledgeDocument).where(KnowledgeDocument.kb_id == int(kb_id)))
+            or 0
+        )
+        kb.chunk_count = int(
+            db.scalar(
+                select(func.coalesce(func.sum(KnowledgeDocument.chunk_count), 0)).where(
+                    KnowledgeDocument.kb_id == int(kb_id)
+                )
+            )
+            or 0
+        )
+        db.add(kb)
 
 
 def bootstrap_database() -> None:
@@ -634,5 +707,6 @@ def bootstrap_database() -> None:
                 _reset_demo_messages(db)
                 _reset_recent_searches(db)
                 _upsert_demo_errands(db)
-        _ensure_knowledge_base(db)
+        kb_id = _ensure_knowledge_base(db)
+        _ensure_seed_knowledge_documents(db, kb_id)
         db.commit()

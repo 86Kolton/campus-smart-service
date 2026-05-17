@@ -145,6 +145,46 @@ Copy-Item .\backend\.env.example .\backend\.env
 - 使用自己的 `AppID` 或测试号导入
 - 配置合法域名与 API 地址
 
+## 从 GitHub 克隆后快速部署
+
+仓库不提交生产数据库、上传文件、`.env`、论文文档、截图和服务器备份。重新部署时按下面流程用代码和种子脚本恢复演示环境：
+
+```bash
+git clone https://github.com/86Kolton/campus-smart-service.git
+cd campus-smart-service/backend
+cp .env.example .env
+```
+
+编辑 `backend/.env`，至少填写：
+
+- `JWT_SECRET`
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
+- `POSTGRES_PASSWORD`
+- `QA_API_KEY` / `EMBEDDING_API_KEY` / `RERANK_API_KEY`（如需在线 AI 与向量能力）
+- `WECHAT_APP_ID` / `WECHAT_APP_SECRET`（如需真实小程序登录）
+
+然后执行：
+
+```bash
+bash deploy.sh
+```
+
+部署脚本会自动完成：
+
+- 构建并启动 FastAPI、PostgreSQL、Redis、Qdrant 和 Celery worker
+- 复制 `index.html`、`app.js`、`styles.css` 到 `/var/www/rag-user`
+- 执行健康检查
+- 默认运行 `scripts/seed_hbu_realistic_demo_data.py` 重建河北大学演示数据
+
+如果只想部署空库，不重建演示数据：
+
+```bash
+SEED_HBU_DEMO_DATA=0 bash deploy.sh
+```
+
+生产运行数据保存在 Docker volumes 或服务器本地目录中，不应提交到 GitHub。
+
 ## 公共仓库边界
 
 这个公开仓库只保留：

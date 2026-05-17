@@ -5,8 +5,11 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select, update
 
 from app.core.database import SessionLocal
+from app.models.comment import Comment
+from app.models.comment_like import CommentLike
 from app.models.message import MessageNotification
 from app.models.post import Post
+from app.models.post_like import PostLike
 from app.models.post_save import PostSave
 from app.models.user import User
 from app.services.user_service import user_service
@@ -32,63 +35,129 @@ def _format_relative(dt: datetime | None) -> str:
     return f"{days} 天前"
 
 
+def _sort_value(dt: datetime | None) -> float:
+    if not isinstance(dt, datetime):
+        return 0
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.timestamp()
+
+
+def _post_like_content(post: Post) -> str:
+    title = str(post.title or "").strip() or "帖子"
+    suffix = "..." if len(title) > 60 else ""
+    return f"帖子赞：{title[:60]}{suffix}"
+
+
+def _comment_like_content(comment: Comment) -> str:
+    body = str(comment.content or "").replace("\n", " ").strip() or "图片评论"
+    suffix = "..." if len(body) > 48 else ""
+    return f"评论赞：{body[:48]}{suffix}"
+
+
 class MessageService:
     def unread_count(self, user_id: int) -> dict:
         with SessionLocal() as db:
+            safe_user_id = int(user_id)
             likes_unread = db.scalar(
                 select(func.count())
                 .select_from(MessageNotification)
+                .join(Post, Post.id == MessageNotification.source_post_id)
                 .where(
-                    MessageNotification.receiver_user_id == int(user_id),
+                    MessageNotification.receiver_user_id == safe_user_id,
                     MessageNotification.type == "likes",
                     MessageNotification.is_read.is_(False),
+                    Post.status == "published",
                 )
             )
-            likes_total = db.scalar(
+            post_like_total = db.scalar(
                 select(func.count())
-                .select_from(MessageNotification)
+                .select_from(PostLike)
+                .join(Post, Post.id == PostLike.post_id)
                 .where(
-                    MessageNotification.receiver_user_id == int(user_id),
-                    MessageNotification.type == "likes",
+                    Post.author_id == safe_user_id,
+                    Post.status == "published",
+                )
+            )
+            comment_like_total = db.scalar(
+                select(func.count())
+                .select_from(CommentLike)
+                .join(Comment, Comment.id == CommentLike.comment_id)
+                .join(Post, Post.id == Comment.post_id)
+                .where(
+                    Comment.author_id == safe_user_id,
+                    Comment.status == "visible",
+                    Post.status == "published",
                 )
             )
             saved_total = db.scalar(
                 select(func.count())
                 .select_from(PostSave)
-                .where(PostSave.user_id == int(user_id))
+                .join(Post, Post.id == PostSave.post_id)
+                .where(PostSave.user_id == safe_user_id, Post.status == "published")
             )
         return {
             "likes_unread": int(likes_unread or 0),
             "saved_unread": 0,
-            "likes_total": int(likes_total or 0),
+            "likes_total": int(post_like_total or 0) + int(comment_like_total or 0),
             "saved_total": int(saved_total or 0),
         }
 
     def list_likes(self, user_id: int) -> list[dict]:
         with SessionLocal() as db:
-            rows = db.execute(
-                select(MessageNotification, User)
-                .join(User, User.id == MessageNotification.source_user_id)
+            safe_user_id = int(user_id)
+            post_rows = db.execute(
+                select(PostLike, Post, User)
+                .join(Post, Post.id == PostLike.post_id)
+                .join(User, User.id == PostLike.user_id)
                 .where(
-                    MessageNotification.receiver_user_id == int(user_id),
-                    MessageNotification.type == "likes",
+                    Post.author_id == safe_user_id,
+                    Post.status == "published",
                 )
-                .order_by(MessageNotification.id.desc())
+            ).all()
+            comment_rows = db.execute(
+                select(CommentLike, Comment, Post, User)
+                .join(Comment, Comment.id == CommentLike.comment_id)
+                .join(Post, Post.id == Comment.post_id)
+                .join(User, User.id == CommentLike.user_id)
+                .where(
+                    Comment.author_id == safe_user_id,
+                    Comment.status == "visible",
+                    Post.status == "published",
+                )
             ).all()
 
         items: list[dict] = []
-        for row, user in rows:
+        for row, post, user in post_rows:
             actor = user_service.get_public_name(user)
             items.append(
                 {
-                    "id": f"l-{row.id}",
-                    "main": f"@{actor} 赞了你：{row.content}",
-                    "meta": f"{_format_relative(row.created_at)} · 来自帖子或评论互动",
-                    "post_id": f"p-{row.source_post_id}",
+                    "id": f"pl-{row.id}",
+                    "main": f"@{actor} 赞了你：{_post_like_content(post)}",
+                    "meta": f"{_format_relative(row.created_at)} · 来自帖子互动",
+                    "post_id": f"p-{post.id}",
                     "source_type": "feed",
                     "saved": False,
+                    "_sort_at": _sort_value(row.created_at),
                 }
             )
+        for row, comment, post, user in comment_rows:
+            actor = user_service.get_public_name(user)
+            items.append(
+                {
+                    "id": f"cl-{row.id}",
+                    "main": f"@{actor} 赞了你：{_comment_like_content(comment)}",
+                    "meta": f"{_format_relative(row.created_at)} · 来自评论互动",
+                    "post_id": f"p-{post.id}",
+                    "source_type": "feed",
+                    "saved": False,
+                    "_sort_at": _sort_value(row.created_at),
+                }
+            )
+
+        items.sort(key=lambda item: (float(item.get("_sort_at") or 0), str(item.get("id") or "")), reverse=True)
+        for item in items:
+            item.pop("_sort_at", None)
         return items
 
     def list_saved(self, user_id: int) -> list[dict]:

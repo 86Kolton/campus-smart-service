@@ -7,9 +7,13 @@ from sqlalchemy import delete, func, select
 from app.core.database import SessionLocal
 from app.models.comment import Comment
 from app.models.comment_asset import CommentAsset
+from app.models.comment_like import CommentLike
+from app.models.message import MessageNotification
 from app.models.post import Post
 from app.models.post_adoption import PostAdoption
 from app.models.post_asset import PostAsset
+from app.models.post_like import PostLike
+from app.models.post_save import PostSave
 
 
 class MaintenanceService:
@@ -55,9 +59,14 @@ class MaintenanceService:
                     or 0
                 )
 
-            db.execute(delete(CommentAsset).where(CommentAsset.comment_id.in_(comment_ids)))
+            if comment_ids:
+                db.execute(delete(CommentLike).where(CommentLike.comment_id.in_(comment_ids)))
+                db.execute(delete(CommentAsset).where(CommentAsset.comment_id.in_(comment_ids)))
+            db.execute(delete(MessageNotification).where(MessageNotification.source_post_id.in_(stale_post_ids)))
             db.execute(delete(Comment).where(Comment.post_id.in_(stale_post_ids)))
             db.execute(delete(PostAsset).where(PostAsset.post_id.in_(stale_post_ids)))
+            db.execute(delete(PostLike).where(PostLike.post_id.in_(stale_post_ids)))
+            db.execute(delete(PostSave).where(PostSave.post_id.in_(stale_post_ids)))
             db.execute(delete(PostAdoption).where(PostAdoption.post_id.in_(stale_post_ids)))
             db.execute(delete(Post).where(Post.id.in_(stale_post_ids)))
             db.commit()

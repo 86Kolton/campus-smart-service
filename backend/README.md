@@ -106,6 +106,29 @@ http://127.0.0.1:8000/docs
 http://127.0.0.1:8000/studio/
 ```
 
+### 3.1.1 服务器从 GitHub 克隆部署
+
+在服务器上克隆仓库后：
+
+```bash
+cd campus-smart-service/backend
+cp .env.example .env
+```
+
+编辑 `.env`，至少填写 `JWT_SECRET`、`ADMIN_USERNAME`、`ADMIN_PASSWORD`、`POSTGRES_PASSWORD`，以及实际需要的模型服务和微信小程序配置。随后执行：
+
+```bash
+bash deploy.sh
+```
+
+脚本会使用 `docker-compose.server.yml` 启动 API、worker、PostgreSQL、Redis 和 Qdrant，并把 Web 用户端静态文件复制到 `/var/www/rag-user`。默认会运行 `scripts/seed_hbu_realistic_demo_data.py` 重建河北大学演示数据；如需空库部署，可执行：
+
+```bash
+SEED_HBU_DEMO_DATA=0 bash deploy.sh
+```
+
+生产数据库、上传文件、`.env` 和备份文件都不会提交到 GitHub，迁移时请通过数据库备份或种子脚本恢复。
+
 ### 3.2 本地 Python 直跑
 
 ```bash

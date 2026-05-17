@@ -168,13 +168,18 @@ Page({
   },
 
   onShow() {
+    const app = getApp();
+    const needsRefresh = Boolean(app.globalData && app.globalData.feedNeedsRefresh);
+    if (needsRefresh) {
+      app.globalData.feedNeedsRefresh = false;
+    }
     syncTabBar(this, 0);
     this.setData({
       greetingDate: formatGreetingDate(),
       greetingName: buildGreetingName(getClientDisplayName("赵毅"))
     });
     this.startLiveSync();
-    this.loadHome();
+    this.loadHome({ force: needsRefresh });
   },
 
   onHide() {
@@ -213,7 +218,7 @@ Page({
     this.setData({ activeFilter: safeFilter, displayFeedItems });
   },
 
-  async loadHome() {
+  async loadHome(_options = {}) {
     const app = getApp();
     this.setData({
       loading: true,

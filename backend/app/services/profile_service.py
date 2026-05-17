@@ -3,9 +3,12 @@ from __future__ import annotations
 from sqlalchemy import func, select
 
 from app.core.database import SessionLocal
+from app.models.comment import Comment
+from app.models.comment_like import CommentLike
 from app.models.errand_task import ErrandTask
 from app.models.message import MessageNotification
 from app.models.post import Post
+from app.models.post_like import PostLike
 from app.models.user import User
 from app.services.user_service import user_service
 
@@ -25,21 +28,42 @@ class ProfileService:
                 db.scalar(select(func.count()).select_from(ErrandTask).where(ErrandTask.publisher_id == safe_user_id))
                 or 0
             )
-            like_count = (
+            post_like_count = (
                 db.scalar(
-                    select(func.count()).select_from(MessageNotification).where(
-                        MessageNotification.receiver_user_id == safe_user_id,
-                        MessageNotification.type == "likes",
+                    select(func.count())
+                    .select_from(PostLike)
+                    .join(Post, Post.id == PostLike.post_id)
+                    .where(
+                        Post.author_id == safe_user_id,
+                        Post.status == "published",
+                    )
+                )
+                or 0
+            )
+            comment_like_count = (
+                db.scalar(
+                    select(func.count())
+                    .select_from(CommentLike)
+                    .join(Comment, Comment.id == CommentLike.comment_id)
+                    .join(Post, Post.id == Comment.post_id)
+                    .where(
+                        Comment.author_id == safe_user_id,
+                        Comment.status == "visible",
+                        Post.status == "published",
                     )
                 )
                 or 0
             )
             likes_unread = (
                 db.scalar(
-                    select(func.count()).select_from(MessageNotification).where(
+                    select(func.count())
+                    .select_from(MessageNotification)
+                    .join(Post, Post.id == MessageNotification.source_post_id)
+                    .where(
                         MessageNotification.receiver_user_id == safe_user_id,
                         MessageNotification.type == "likes",
                         MessageNotification.is_read.is_(False),
+                        Post.status == "published",
                     )
                 )
                 or 0
@@ -56,7 +80,7 @@ class ProfileService:
             "bind_state": bind_state,
             "wechat_bound": wechat_bound,
             "posts": int(post_count) + int(errand_count),
-            "likes": int(like_count),
+            "likes": int(post_like_count) + int(comment_like_count),
             "feed_posts": int(post_count),
             "errand_posts": int(errand_count),
             "likes_unread": int(likes_unread),

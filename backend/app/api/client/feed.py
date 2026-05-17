@@ -281,12 +281,7 @@ async def delete_post(
 
 @router.get("/home/hot-topics", response_model=HomeHotTopicResponse)
 async def home_hot_topics(_identity: ClientIdentity = Depends(require_client_identity)) -> HomeHotTopicResponse:
-    items = [
-        {"id": "hot-1", "title": "二食堂错峰窗口实测", "heat": "9.8k"},
-        {"id": "hot-2", "title": "A1-307 晚间自习位反馈", "heat": "8.6k"},
-        {"id": "hot-3", "title": "周三调课通知集中帖", "heat": "7.9k"},
-    ]
-    return HomeHotTopicResponse(items=items)
+    return HomeHotTopicResponse(items=post_service.list_home_hot_topics(limit=3))
 
 
 @router.get("/profile/my-posts", response_model=FeedListResponse)

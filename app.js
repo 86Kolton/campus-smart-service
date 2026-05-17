@@ -8,6 +8,8 @@ const marketQuery = document.getElementById('marketQuery');
 const marketSearchBtn = document.getElementById('marketSearchBtn');
 const marketResultList = document.getElementById('marketResultList');
 const marketCount = document.getElementById('marketCount');
+const rankHotTitle = document.getElementById('rankHotTitle');
+const rankHotList = document.getElementById('rankHotList');
 const recentSearchList = document.getElementById('recentSearchList');
 const clearRecentBtn = document.getElementById('clearRecentBtn');
 const sortButtons = Array.from(document.querySelectorAll('.sort-btn'));
@@ -26,6 +28,8 @@ const wikiDetailCloseBtn = document.getElementById('wikiDetailCloseBtn');
 
 const copyUsageBtn = document.getElementById('copyUsageBtn');
 const feedList = document.getElementById('feedList');
+const homeHotTitle = document.getElementById('homeHotTitle');
+const homeHotTopic = document.getElementById('homeHotTopic');
 const homeHotList = document.getElementById('homeHotList');
 const feedFilterButtons = Array.from(document.querySelectorAll('.feed-filter-btn'));
 const fabBtn = document.getElementById('globalFabBtn');
@@ -82,6 +86,7 @@ const backErrandBtn = document.getElementById('backErrandBtn');
 const errandList = document.getElementById('errandList');
 const errandCreateBtn = document.getElementById('errandCreateBtn');
 const errandFilterButtons = Array.from(document.querySelectorAll('.errand-filters .chip[data-errand-filter]'));
+const errandStatusFilterButtons = Array.from(document.querySelectorAll('.errand-kpis [data-errand-status-filter]'));
 const errandOpenCount = document.getElementById('errandOpenCount');
 const errandInProgressCount = document.getElementById('errandInProgressCount');
 const errandDoneCount = document.getElementById('errandDoneCount');
@@ -113,9 +118,6 @@ const commentInput = document.getElementById('commentInput');
 const commentSendBtn = document.getElementById('commentSendBtn');
 const commentImageInput = document.getElementById('commentImageInput');
 const commentImageMeta = document.getElementById('commentImageMeta');
-const commentReplyMeta = document.getElementById('commentReplyMeta');
-const commentReplyText = document.getElementById('commentReplyText');
-const commentReplyCancelBtn = document.getElementById('commentReplyCancelBtn');
 
 const postComposerSheet = document.getElementById('postComposerSheet');
 const postComposerMask = document.getElementById('postComposerMask');
@@ -145,6 +147,18 @@ const CLIENT_REFRESH_KEY = 'campus_client_refresh_v1';
 const CLIENT_BOOTSTRAP_USERNAME_KEY = 'campus_bootstrap_username_v1';
 const CLIENT_BOOTSTRAP_PASSWORD_KEY = 'campus_bootstrap_password_v1';
 const ERRAND_STORAGE_KEY = 'campus_errand_tasks_v2';
+const APP_BUILD_VERSION = '20260517-11';
+const APP_BUILD_STORAGE_KEY = 'campus_web_build_v1';
+const API_BASE_STORAGE_KEY = 'campus_api_base_url';
+const LEGACY_API_BASE_URLS = new Set([
+  'http://116.204.132.58:8000',
+  'https://116.204.132.58:8000',
+  'http://rag-user.yyaxx.cc',
+  'https://rag-user.yyaxx.cc:8000',
+  'http://rag.yyaxx.cc',
+  'https://rag.yyaxx.cc:8000',
+  'https://rag.yyaxx.cc'
+]);
 const KNOWLEDGE_UI_CONFIG = Object.freeze({
   showQuickPrompts: false
 });
@@ -345,20 +359,112 @@ function saveErrandTasks(tasks) {
   }
 }
 
-function detectApiBaseUrl() {
+function removeStorageValue(storage, key) {
   try {
-    const injected = typeof window !== 'undefined' ? String(window.__API_BASE_URL__ || '').trim() : '';
-    if (injected) {
-      return injected.replace(/\/$/, '');
+    if (storage && typeof storage.removeItem === 'function') {
+      storage.removeItem(key);
     }
   } catch (error) {
     // ignore
   }
+}
+
+function isLocalDevHost(hostname = '') {
+  return hostname === '127.0.0.1' || hostname === 'localhost';
+}
+
+function normalizeApiBaseUrl(value, fallback = '') {
+  const text = String(value || '').trim();
+  if (!text) {
+    return String(fallback || '').trim();
+  }
+  const normalized = text.replace(/\/+$/, '');
+  if (LEGACY_API_BASE_URLS.has(normalized)) {
+    return String(fallback || '').trim();
+  }
+  return normalized;
+}
+
+function detectCurrentOriginApiBase() {
+  try {
+    if (typeof window === 'undefined' || !window.location) {
+      return '';
+    }
+    const protocol = String(window.location.protocol || '');
+    const hostname = String(window.location.hostname || '');
+    const port = String(window.location.port || '');
+    const origin = String(window.location.origin || '').trim();
+    const isHttp = protocol === 'http:' || protocol === 'https:';
+    const devPorts = new Set(['3000', '5173', '5174', '5500', '8080']);
+    if (isHttp && isLocalDevHost(hostname) && devPorts.has(port)) {
+      return 'http://127.0.0.1:8000';
+    }
+    if (isHttp && origin) {
+      return origin.replace(/\/$/, '');
+    }
+  } catch (error) {
+    // ignore
+  }
+  return '';
+}
+
+function clearPersistedClientSession() {
+  removeStorageValue(localStorage, CLIENT_TOKEN_KEY);
+  removeStorageValue(localStorage, CLIENT_REFRESH_KEY);
+  removeStorageValue(localStorage, STORAGE_KEY);
+}
+
+function migratePersistedClientState() {
+  const currentOriginBase = detectCurrentOriginApiBase();
+  const currentHost = (() => {
+    try {
+      return typeof window !== 'undefined' && window.location ? String(window.location.hostname || '') : '';
+    } catch (error) {
+      return '';
+    }
+  })();
+  const isLocalHost = isLocalDevHost(currentHost);
+
+  let savedBase = '';
+  try {
+    savedBase = String(localStorage.getItem(API_BASE_STORAGE_KEY) || '').trim();
+  } catch (error) {
+    savedBase = '';
+  }
+  const normalizedSavedBase = normalizeApiBaseUrl(savedBase, '');
+  const shouldDropSavedBase = Boolean(
+    savedBase
+    && (
+      !normalizedSavedBase
+      || (!isLocalHost && currentOriginBase && normalizedSavedBase !== currentOriginBase)
+    )
+  );
+
+  removeStorageValue(localStorage, CLIENT_BOOTSTRAP_USERNAME_KEY);
+  removeStorageValue(localStorage, CLIENT_BOOTSTRAP_PASSWORD_KEY);
+
+  if (shouldDropSavedBase) {
+    removeStorageValue(localStorage, API_BASE_STORAGE_KEY);
+    removeStorageValue(sessionStorage, CLIENT_BOOTSTRAP_USERNAME_KEY);
+    removeStorageValue(sessionStorage, CLIENT_BOOTSTRAP_PASSWORD_KEY);
+    clearPersistedClientSession();
+  }
 
   try {
-    const saved = typeof localStorage !== 'undefined' ? String(localStorage.getItem('campus_api_base_url') || '').trim() : '';
-    if (saved) {
-      return saved.replace(/\/$/, '');
+    localStorage.setItem(APP_BUILD_STORAGE_KEY, APP_BUILD_VERSION);
+  } catch (error) {
+    // ignore
+  }
+}
+
+function detectApiBaseUrl() {
+  const currentOriginBase = detectCurrentOriginApiBase();
+  migratePersistedClientState();
+
+  try {
+    const injected = typeof window !== 'undefined' ? String(window.__API_BASE_URL__ || '').trim() : '';
+    if (injected) {
+      return normalizeApiBaseUrl(injected, currentOriginBase || 'http://127.0.0.1:8000');
     }
   } catch (error) {
     // ignore
@@ -369,7 +475,7 @@ function detectApiBaseUrl() {
       const params = new URLSearchParams(window.location.search);
       const fromQuery = String(params.get('apiBase') || '').trim();
       if (fromQuery) {
-        return fromQuery.replace(/\/$/, '');
+        return normalizeApiBaseUrl(fromQuery, currentOriginBase || 'http://127.0.0.1:8000');
       }
     }
   } catch (error) {
@@ -377,26 +483,17 @@ function detectApiBaseUrl() {
   }
 
   try {
-    if (typeof window !== 'undefined' && window.location) {
-      const protocol = String(window.location.protocol || '');
-      const hostname = String(window.location.hostname || '');
-      const port = String(window.location.port || '');
-      const origin = String(window.location.origin || '').trim();
-      const isHttp = protocol === 'http:' || protocol === 'https:';
-      const isLocalHost = hostname === '127.0.0.1' || hostname === 'localhost';
-      const devPorts = new Set(['3000', '5173', '5174', '5500', '8080']);
-      if (isHttp && isLocalHost && devPorts.has(port)) {
-        return 'http://127.0.0.1:8000';
-      }
-      if (isHttp && origin) {
-        return origin.replace(/\/$/, '');
+    if (typeof window !== 'undefined' && window.location && isLocalDevHost(String(window.location.hostname || ''))) {
+      const saved = typeof localStorage !== 'undefined' ? String(localStorage.getItem(API_BASE_STORAGE_KEY) || '').trim() : '';
+      if (saved) {
+        return normalizeApiBaseUrl(saved, currentOriginBase || 'http://127.0.0.1:8000');
       }
     }
   } catch (error) {
     // ignore
   }
 
-  return 'http://127.0.0.1:8000';
+  return currentOriginBase || 'http://127.0.0.1:8000';
 }
 
 function getApiBaseLabel() {
@@ -669,6 +766,11 @@ let homeHotTopics = [
   { id: 'hot-2', rank: 2, query: 'A1 教学楼晚上自习体验如何？', title: 'A1-307 晚间自习位反馈', heat: '8.6k', postRef: 'm-2', sourceType: 'search' },
   { id: 'hot-3', rank: 3, query: '周三临时调课是否已经同步到课表？', title: '周三调课通知集中帖', heat: '7.9k', postRef: 'm-3', sourceType: 'search' }
 ];
+
+homeHotTopics = [];
+let homeHotWindowState = {
+  isFallback: false
+};
 
 const feedPosts = [
   {
@@ -960,6 +1062,7 @@ let activeReplyTarget = null;
 let activeSubpageAction = null;
 let currentSubpageListItems = [];
 let currentSubpageSourceType = 'feed';
+let clientAuthBootstrapPromise = null;
 const wikiDetailRegistry = new Map();
 let activeWikiDetailId = '';
 let activeWikiDetailTrigger = null;
@@ -1949,7 +2052,13 @@ const apiAdapter = {
     return data.items.map((item, index) => ({
       id: String(item.id || `hot-${index}`),
       title: String(item.title || ''),
-      heat: String(item.heat || '')
+      heat: String(item.heat || ''),
+      postRef: String(item.post_id || item.postRef || ''),
+      sourceType: String(item.source_type || item.sourceType || 'feed'),
+      query: String(item.query || item.title || ''),
+      isRecent: Boolean(item.is_recent ?? item.isRecent ?? true),
+      createdAt: String(item.created_at || item.createdAt || ''),
+      rank: index + 1
     })).filter((item) => item.title);
   },
 
@@ -2646,12 +2755,12 @@ function setActiveView(view) {
     closeImageViewer();
   }
 
+  appState.lastTab = safeView;
+  saveState();
+
   if ((safeView === 'profile' || safeView === 'home') && API_CONFIG.refreshOnProfileEnter) {
     void refreshVisibleClientState({ force: true });
   }
-
-  appState.lastTab = safeView;
-  saveState();
 }
 
 function getFeedByFilter(filter) {
@@ -2845,14 +2954,83 @@ function openPostByKeyword(keyword, options = {}) {
   return false;
 }
 
+function buildFallbackHotTopicsFromFeed() {
+  return [...feedPosts]
+    .sort((left, right) => {
+      const leftScore = Number(left.likes || 0) * 3 + Number(left.comments || 0) * 5 + (left.adopted ? 12 : 0);
+      const rightScore = Number(right.likes || 0) * 3 + Number(right.comments || 0) * 5 + (right.adopted ? 12 : 0);
+      return rightScore - leftScore;
+    })
+    .slice(0, 3)
+    .map((item, index) => ({
+      id: `fallback-hot-${index + 1}`,
+      rank: index + 1,
+      query: String(item.title || '').trim(),
+      title: String(item.title || '').trim(),
+      heat: `${Math.max(0, Number(item.likes || 0) * 3 + Number(item.comments || 0) * 5 + (item.adopted ? 12 : 0))}热`,
+      postRef: String(item.id || '').trim(),
+      sourceType: 'feed',
+      isRecent: true,
+      createdAt: ''
+    }));
+}
+
+function getRenderableHomeHotTopics() {
+  const liveList = Array.isArray(homeHotTopics) ? homeHotTopics.filter((item) => item && item.title) : [];
+  return (liveList.length ? liveList : buildFallbackHotTopicsFromFeed()).slice(0, 3);
+}
+
+function updateHotTopicHeadings(list = getRenderableHomeHotTopics()) {
+  const hasLiveRows = Array.isArray(homeHotTopics) && homeHotTopics.length > 0;
+  const isFallback = Boolean(
+    homeHotWindowState.isFallback
+    || (hasLiveRows && list.length && list.every((item) => item.isRecent === false))
+  );
+  const topTitle = list[0] && list[0].title ? String(list[0].title) : '';
+
+  if (homeHotTitle) {
+    homeHotTitle.textContent = isFallback ? '首页近期高热' : '首页 24 小时热帖';
+  }
+  if (homeHotTopic) {
+    homeHotTopic.textContent = isFallback
+      ? '近24小时暂无新增，当前展示近期高热帖子。'
+      : (topTitle ? `今日话题：${topTitle}` : '今日话题：校园动态实时更新中');
+  }
+  if (rankHotTitle) {
+    rankHotTitle.textContent = isFallback ? '论坛近期高热' : '论坛 24 小时热文';
+  }
+}
+
+function applyRemoteHotTopics(remoteHotTopics) {
+  if (!Array.isArray(remoteHotTopics) || !remoteHotTopics.length) {
+    return false;
+  }
+
+  homeHotTopics = remoteHotTopics.map((item, index) => ({
+    ...item,
+    rank: index + 1,
+    query: item.query || item.title,
+    sourceType: item.sourceType || 'feed',
+    isRecent: item.isRecent !== false
+  }));
+  homeHotWindowState = {
+    isFallback: homeHotTopics.length > 0 && homeHotTopics.every((item) => item.isRecent === false)
+  };
+  renderHomeHotTopics();
+  return true;
+}
+
 function renderHomeHotTopics() {
+  const list = getRenderableHomeHotTopics();
+  updateHotTopicHeadings(list);
   if (!homeHotList) {
+    renderRankHotTopics();
     return;
   }
 
   homeHotList.innerHTML = '';
-  const list = Array.isArray(homeHotTopics) ? homeHotTopics.slice(0, 3) : [];
   if (!list.length) {
+    renderRankHotTopics();
     return;
   }
 
@@ -2861,10 +3039,10 @@ function renderHomeHotTopics() {
     row.className = 'hot-row';
     row.type = 'button';
     row.dataset.hot = item.query || item.title || '';
-    const mappedPostId = item.postRef || hotTopicPostMap[String(item.id || '')] || '';
-    if (mappedPostId) {
-      row.dataset.marketPostId = mappedPostId;
-      row.dataset.source = item.sourceType || 'search';
+    const explicitPostRef = String(item.postRef || item.postId || '').trim();
+    if (explicitPostRef) {
+      row.dataset.postRef = explicitPostRef;
+      row.dataset.source = item.sourceType || 'feed';
     }
     row.dataset.hotId = item.id || `hot-${idx + 1}`;
     row.innerHTML = `
@@ -2873,6 +3051,39 @@ function renderHomeHotTopics() {
       <span class="hot-heat">${item.heat || ''}</span>
     `;
     homeHotList.appendChild(row);
+  });
+  renderRankHotTopics();
+}
+
+function renderRankHotTopics() {
+  if (!rankHotList) {
+    return;
+  }
+
+  rankHotList.innerHTML = '';
+  const list = getRenderableHomeHotTopics();
+  updateHotTopicHeadings(list);
+  if (!list.length) {
+    return;
+  }
+
+  list.forEach((item, idx) => {
+    const row = document.createElement('button');
+    row.className = 'rank-row';
+    row.type = 'button';
+    row.dataset.hot = item.query || item.title || '';
+    const explicitPostRef = String(item.postRef || item.postId || '').trim();
+    if (explicitPostRef) {
+      row.dataset.postRef = explicitPostRef;
+      row.dataset.source = item.sourceType || 'feed';
+    }
+    row.dataset.hotId = item.id || `rank-hot-${idx + 1}`;
+    row.innerHTML = `
+      <span>${item.rank || idx + 1}</span>
+      <em>${item.title || ''}</em>
+      <i>${item.heat || ''}</i>
+    `;
+    rankHotList.appendChild(row);
   });
 }
 
@@ -2992,26 +3203,22 @@ function collectCommentThreadIds(items, rootCommentId) {
   return visited;
 }
 
-function updateCommentReplyMeta() {
-  if (!commentReplyMeta || !commentReplyText || !commentInput) {
+function updateCommentReplyState() {
+  if (!commentInput) {
     return;
   }
 
   if (!activeReplyTarget) {
-    commentReplyMeta.hidden = true;
-    commentReplyText.textContent = '';
     commentInput.placeholder = '说点什么...';
     return;
   }
 
-  commentReplyMeta.hidden = false;
-  commentReplyText.textContent = `正在回复 ${activeReplyTarget.author || '@某同学'}`;
   commentInput.placeholder = `回复 ${activeReplyTarget.author || '@某同学'}...`;
 }
 
 function clearReplyTarget() {
   activeReplyTarget = null;
-  updateCommentReplyMeta();
+  updateCommentReplyState();
 }
 
 function setReplyTarget(commentId) {
@@ -3027,7 +3234,7 @@ function setReplyTarget(commentId) {
     id: String(target.id || ''),
     author: String(target.author || '@匿名用户')
   };
-  updateCommentReplyMeta();
+  updateCommentReplyState();
   if (commentInput) {
     commentInput.focus();
   }
@@ -3215,7 +3422,7 @@ function closeCommentSheet() {
   if (commentImageMeta) {
     commentImageMeta.textContent = '未选择图片';
   }
-  updateCommentReplyMeta();
+  updateCommentReplyState();
   setCommentComposerState();
 }
 
@@ -3340,7 +3547,7 @@ function openCommentSheet(postId) {
   if (commentImageMeta) {
     commentImageMeta.textContent = '未选择图片';
   }
-  updateCommentReplyMeta();
+  updateCommentReplyState();
   setCommentComposerState();
   renderCommentList();
 
@@ -5752,6 +5959,7 @@ function openSubpageListPage({
 }
 
 let activeErrandFilter = 'all';
+let activeErrandStatusFilter = 'all';
 
 function getCurrentClientIdentity() {
   const auth = appState && appState.clientAuth ? appState.clientAuth : {};
@@ -6515,18 +6723,7 @@ async function refreshVisibleClientState(options = {}) {
       tasks.push(hydrateFeedByFilter(appState.activeFeedFilter || 'all'));
       tasks.push((async () => {
         const remoteHotTopics = await apiAdapter.fetchHomeHotTopics();
-        if (Array.isArray(remoteHotTopics) && remoteHotTopics.length) {
-          homeHotTopics = remoteHotTopics.map((item, index) => ({
-            id: item.id,
-            rank: index + 1,
-            query: item.title,
-            title: item.title,
-            heat: item.heat,
-            postRef: hotTopicPostMap[String(item.id || '')] || '',
-            sourceType: 'search'
-          }));
-          renderHomeHotTopics();
-        }
+        applyRemoteHotTopics(remoteHotTopics);
       })());
     }
 
@@ -6749,18 +6946,7 @@ async function hydrateRemoteState() {
   void hydrateFeedByFilter(appState.activeFeedFilter || 'all');
 
   const remoteHotTopics = await apiAdapter.fetchHomeHotTopics();
-  if (Array.isArray(remoteHotTopics) && remoteHotTopics.length) {
-    homeHotTopics = remoteHotTopics.map((item, index) => ({
-      id: item.id,
-      rank: index + 1,
-      query: item.title,
-      title: item.title,
-      heat: item.heat,
-      postRef: hotTopicPostMap[String(item.id || '')] || '',
-      sourceType: 'search'
-    }));
-    renderHomeHotTopics();
-  }
+  applyRemoteHotTopics(remoteHotTopics);
 
   const remoteRecent = await apiAdapter.fetchRecentSearches();
   if (Array.isArray(remoteRecent)) {
@@ -6978,6 +7164,29 @@ function renderErrandSummary() {
   if (errandDoneCount) {
     errandDoneCount.textContent = String(done);
   }
+  syncErrandStatusButtons();
+}
+
+function syncErrandStatusButtons() {
+  errandStatusFilterButtons.forEach((button) => {
+    const isActive = button.dataset.errandStatusFilter === activeErrandStatusFilter;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+  });
+}
+
+function matchesErrandStatusFilter(task) {
+  const status = normalizeErrandStatus(task.status);
+  if (activeErrandStatusFilter === 'open') {
+    return status === 'open';
+  }
+  if (activeErrandStatusFilter === 'inprogress') {
+    return status === 'inprogress' || status === 'waiting_confirm';
+  }
+  if (activeErrandStatusFilter === 'done') {
+    return status === 'done';
+  }
+  return true;
 }
 
 function renderErrandList() {
@@ -6986,10 +7195,12 @@ function renderErrandList() {
   }
   renderErrandSummary();
   const filtered = errandTasks.filter((task) => {
-    if (activeErrandFilter === 'all') {
-      return true;
+    const typeMatches = activeErrandFilter === 'all'
+      || String(task.taskType || 'quick') === String(activeErrandFilter || 'all');
+    if (!typeMatches) {
+      return false;
     }
-    return String(task.taskType || 'quick') === String(activeErrandFilter || 'all');
+    return matchesErrandStatusFilter(task);
   });
 
   if (!filtered.length) {
@@ -7232,6 +7443,7 @@ async function openErrandPage() {
   errandFilterButtons.forEach((btn) => {
     btn.classList.toggle('is-active', btn.dataset.errandFilter === activeErrandFilter);
   });
+  syncErrandStatusButtons();
   renderErrandList();
   errandSheet.hidden = false;
   errandMask.hidden = true;
@@ -7345,18 +7557,23 @@ sortButtons.forEach((button) => {
   });
 });
 
-Array.from(document.querySelectorAll('.rank-row')).forEach((row) => {
-  row.addEventListener('click', () => {
-    const explicitPostId = String(row.dataset.marketPostId || rankHotPostMap[String(row.dataset.hot || '')] || '').trim();
-    if (explicitPostId) {
-      openPostDetailSheet(explicitPostId, 'search');
+if (rankHotList) {
+  rankHotList.addEventListener('click', (event) => {
+    const row = event.target.closest('.rank-row');
+    if (!row) {
+      return;
+    }
+
+    const explicitPostRef = String(row.dataset.postRef || '').trim();
+    if (explicitPostRef) {
+      openPostDetailSheet(explicitPostRef, String(row.dataset.source || 'feed'));
       return;
     }
 
     const hotKeyword = String(row.dataset.hot || row.textContent || '').trim();
-    openPostByKeyword(hotKeyword, { preferred: 'search', fallbackSearch: true });
+    openPostByKeyword(hotKeyword, { preferred: 'feed', fallbackSearch: true });
   });
-});
+}
 
 if (homeHotList) {
   homeHotList.addEventListener('click', (event) => {
@@ -7365,14 +7582,14 @@ if (homeHotList) {
       return;
     }
 
-    const explicitPostId = String(row.dataset.marketPostId || '').trim();
-    if (explicitPostId) {
-      openPostDetailSheet(explicitPostId, String(row.dataset.source || 'search'));
+    const explicitPostRef = String(row.dataset.postRef || row.dataset.marketPostId || '').trim();
+    if (explicitPostRef) {
+      openPostDetailSheet(explicitPostRef, String(row.dataset.source || 'feed'));
       return;
     }
 
     const hotKeyword = String(row.dataset.hot || '').trim();
-    openPostByKeyword(hotKeyword, { preferred: 'search', fallbackSearch: true });
+    openPostByKeyword(hotKeyword, { preferred: 'feed', fallbackSearch: true });
   });
 }
 
@@ -7745,6 +7962,16 @@ if (errandFilterButtons.length) {
   });
 }
 
+if (errandStatusFilterButtons.length) {
+  errandStatusFilterButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const nextStatus = button.dataset.errandStatusFilter || 'all';
+      activeErrandStatusFilter = activeErrandStatusFilter === nextStatus ? 'all' : nextStatus;
+      renderErrandList();
+    });
+  });
+}
+
 if (errandCreateBtn) {
   errandCreateBtn.addEventListener('click', () => {
     openErrandCreateSheet();
@@ -7995,15 +8222,6 @@ if (commentForm) {
   });
 }
 
-if (commentReplyCancelBtn) {
-  commentReplyCancelBtn.addEventListener('click', () => {
-    clearReplyTarget();
-    if (commentInput) {
-      commentInput.focus();
-    }
-  });
-}
-
 if (postImageInput) {
   postImageInput.addEventListener('change', async () => {
     const file = postImageInput.files && postImageInput.files[0] ? postImageInput.files[0] : null;
@@ -8173,9 +8391,8 @@ if (imageViewerClose) {
 Array.from(document.querySelectorAll('.stat-item')).forEach((button) => {
   button.addEventListener('click', () => {
     const action = button.dataset.statAction || 'stats';
-    const title = action === 'likedPosts' ? '我的获赞' : '我的帖子';
-    if (action === 'likedPosts') {
-      void openLikedPostsPage();
+    if (action === 'receivedLikes') {
+      openInboxDetailSheet('likes');
     } else {
       void openMyPostsPage();
     }
@@ -8351,7 +8568,7 @@ renderProfileInbox();
 updateProfileDot();
 setActiveView(appState.lastTab || 'home');
 setCommentComposerState();
-updateCommentReplyMeta();
+updateCommentReplyState();
 
 setNetworkHint(API_CONFIG.enabled ? (navigator.onLine ? 'online' : 'offline') : 'local');
 
@@ -8377,25 +8594,40 @@ async function bootstrapClientAuth() {
   await hydrateRemoteState();
 }
 
+function getClientSessionSnapshot() {
+  return {
+    userId: Number(appState.clientAuth.userId || 0),
+    username: String(appState.clientAuth.username || ''),
+    displayName: String(appState.clientAuth.displayName || ''),
+    token: String(appState.clientAuth.token || ''),
+    refreshToken: String(appState.clientAuth.refreshToken || '')
+  };
+}
+
+async function getReadyClientSession() {
+  if (!appState.clientAuth || !appState.clientAuth.token) {
+    if (clientAuthBootstrapPromise) {
+      await clientAuthBootstrapPromise;
+    }
+    if (!appState.clientAuth || !appState.clientAuth.token) {
+      await ensureClientSession();
+    }
+  }
+  return getClientSessionSnapshot();
+}
+
 if (typeof window !== 'undefined') {
   window.CampusClientAuth = {
     loginWithWechatCode,
     bindWechatByCode,
     ensureClientSession,
     logoutClient,
-    getSession() {
-      return {
-        userId: Number(appState.clientAuth.userId || 0),
-        username: String(appState.clientAuth.username || ''),
-        displayName: String(appState.clientAuth.displayName || ''),
-        token: String(appState.clientAuth.token || ''),
-        refreshToken: String(appState.clientAuth.refreshToken || '')
-      };
-    }
+    getSession: getReadyClientSession,
+    getSessionSync: getClientSessionSnapshot
   };
 }
 
-void bootstrapClientAuth();
+clientAuthBootstrapPromise = bootstrapClientAuth().catch(() => null);
 startUnreadPolling();
 
 document.addEventListener('pointerdown', handleUserActivity, { passive: true });

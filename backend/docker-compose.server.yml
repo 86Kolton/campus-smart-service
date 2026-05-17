@@ -1,0 +1,93 @@
+# ==========================================
+# Production server deployment config.
+# 使用方式: docker compose -f docker-compose.server.yml up -d
+# ==========================================
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      BOOTSTRAP_DEMO_DATA: "false"
+      WECHAT_MOCK_ENABLED: "false"
+      # 服务器环境使用 PostgreSQL，覆盖 .env 中的 SQLite 默认值
+      POSTGRES_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-campus_postgres_change_me}@postgres:5432/${POSTGRES_DB:-campus}
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      # 服务器环境只允许当前 HTTPS 域名与本地调试入口跨域访问
+      ALLOWED_ORIGINS: "https://rag-user.yyaxx.cc,https://rag.yyaxx.cc,http://127.0.0.1:5173,http://localhost:5173"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+      - qdrant
+    volumes:
+      - uploads_data:/app/data/uploads
+      - evolution_data:/app/data/evolution
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      BOOTSTRAP_DEMO_DATA: "false"
+      WECHAT_MOCK_ENABLED: "false"
+      POSTGRES_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-campus_postgres_change_me}@postgres:5432/${POSTGRES_DB:-campus}
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      - redis
+      - postgres
+      - qdrant
+    volumes:
+      - uploads_data:/app/data/uploads
+      - evolution_data:/app/data/evolution
+    restart: unless-stopped
+    command: celery -A app.tasks.celery_app.celery_app worker -l info
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-campus_postgres_change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-campus}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    ports:
+      - "127.0.0.1:6379:6379"
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.13.6
+    ports:
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+
+volumes:
+  pg_data:
+  qdrant_data:
+  uploads_data:
+  evolution_data:

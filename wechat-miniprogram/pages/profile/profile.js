@@ -125,6 +125,10 @@ Page({
   },
 
   onShow() {
+    const app = getApp();
+    if (app.globalData && app.globalData.profileNeedsRefresh) {
+      app.globalData.profileNeedsRefresh = false;
+    }
     syncTabBar(this, 3);
     this.setData({
       greetingDate: formatGreetingDate(),

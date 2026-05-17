@@ -8,6 +8,13 @@ playwright-report/
 preview-info.json
 preview-qr.png
 README.assets/
+output/
+paper-writing-output/
+thesis_figures/
+*.docx
+*.bak
+online-*.png
+cleanup-deleted-items.log
 
 # Keep public repo free of deployment-only recovery material.
 ops/recovery/
@@ -20,6 +27,8 @@ browser-use-recon/
 
 backend/.env
 backend/*.db
+backend/*.db-*
+backend/*.bak
 backend/data/*
 !backend/data/seed_kb/
 !backend/data/seed_kb/**

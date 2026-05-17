@@ -101,6 +101,7 @@ textarea {
   grid-template-columns: minmax(300px, 420px) minmax(350px, 450px);
   justify-content: center;
   gap: 30px;
+  overflow-x: hidden;
 }
 
 .reveal {
@@ -207,10 +208,14 @@ textarea {
 .phone-wrap {
   display: flex;
   justify-content: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .phone-shell {
   width: min(450px, 100%);
+  min-width: 0;
+  max-width: 100%;
   min-height: 868px;
   padding: 14px;
   border-radius: 38px;
@@ -218,6 +223,7 @@ textarea {
   background: linear-gradient(155deg, #f9fbff, #f2f6ff);
   box-shadow: var(--shadow-strong);
   position: relative;
+  overflow: hidden;
 }
 
 .notch {
@@ -235,6 +241,8 @@ textarea {
 .app-shell {
   min-height: 838px;
   height: 100%;
+  min-width: 0;
+  max-width: 100%;
   border-radius: 30px;
   overflow: hidden;
   border: 1px solid #d6e1ee;
@@ -284,6 +292,7 @@ textarea {
 .screens {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   position: relative;
   padding: 0 16px 10px;
 }
@@ -291,6 +300,8 @@ textarea {
 .screen {
   position: absolute;
   inset: 0 16px 8px;
+  min-width: 0;
+  max-width: 100%;
   display: none;
   overflow-y: auto;
   overflow-x: hidden;
@@ -523,10 +534,12 @@ textarea {
   display: grid;
   gap: 10px;
   padding-bottom: 112px;
+  min-width: 0;
 }
 
 .post-card {
   padding: 12px;
+  min-width: 0;
 }
 
 .post-card.is-clickable {
@@ -553,6 +566,7 @@ textarea {
 
 .author-meta {
   flex: 1;
+  min-width: 0;
 }
 
 .author-line {
@@ -572,7 +586,25 @@ textarea {
 }
 
 .more {
+  width: 38px;
+  height: 32px;
+  flex: 0 0 38px;
+  border-radius: 999px;
+  background: #f4f8fd;
+  display: inline-grid;
+  place-items: center;
   color: #aab9ca;
+  font-size: 0;
+  line-height: 1;
+}
+
+.more::before {
+  content: "...";
+  color: #8fa4ba;
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: 3px;
+  transform: translateX(1px);
 }
 
 .post-card h4 {
@@ -584,6 +616,15 @@ textarea {
   font-size: 13px;
   line-height: 1.62;
   color: #3a516a;
+}
+
+.post-card h4,
+.post-card p,
+.post-thread-preview p,
+.tags,
+.author-line strong {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .post-thread-preview {
@@ -648,6 +689,7 @@ textarea {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+  min-width: 0;
 }
 
 .post-actions button {
@@ -995,6 +1037,7 @@ textarea {
   gap: 8px;
   align-content: start;
   grid-auto-rows: max-content;
+  min-width: 0;
 }
 
 .result-tools {
@@ -1032,6 +1075,7 @@ textarea {
 .result-item {
   display: block;
   width: 100%;
+  min-width: 0;
   border: 0;
   border-top: 1px solid #edf2f8;
   background: transparent;
@@ -1053,6 +1097,13 @@ textarea {
   margin: 0;
   font-size: 14px;
   color: #203854;
+}
+
+.result-item h5,
+.result-item p,
+.result-item small {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .result-item small {
@@ -2183,6 +2234,7 @@ textarea {
   overflow-y: auto;
   align-content: start;
   grid-auto-rows: max-content;
+  min-width: 0;
 }
 
 .subpage-card {
@@ -2193,6 +2245,7 @@ textarea {
   display: grid;
   gap: 6px;
   align-content: start;
+  min-width: 0;
 }
 
 .subpage-card.is-clickable {
@@ -2210,6 +2263,14 @@ textarea {
   font-size: 12px;
   color: #3a566f;
   line-height: 1.6;
+}
+
+.subpage-card h5,
+.subpage-card p,
+.subpage-meta,
+.subpage-stats {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .subpage-meta {
@@ -2391,6 +2452,10 @@ textarea {
   gap: 6px;
 }
 
+.errand-sheet {
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+}
+
 .errand-hero h5,
 .cross-hero h5 {
   margin: 0;
@@ -2413,12 +2478,35 @@ textarea {
   margin-top: 4px;
 }
 
-.errand-kpis div {
+.errand-kpis button {
+  appearance: none;
   border: 1px solid #d6e4f4;
   border-radius: 12px;
   background: #ffffff;
   padding: 6px 8px;
   text-align: center;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  touch-action: manipulation;
+}
+
+.errand-kpis button:hover {
+  border-color: #b7cde6;
+  box-shadow: 0 8px 18px rgba(28, 64, 105, 0.08);
+  transform: translateY(-1px);
+}
+
+.errand-kpis button.is-active {
+  border-color: #8fb3dc;
+  background: linear-gradient(180deg, #edf5ff, #e4effb);
+  box-shadow: 0 10px 22px rgba(28, 64, 105, 0.12);
+}
+
+.errand-kpis button:focus-visible {
+  outline: 2px solid rgba(62, 113, 174, 0.42);
+  outline-offset: 2px;
 }
 
 .errand-kpis strong {
@@ -2461,6 +2549,7 @@ textarea {
   padding: 10px 12px 12px;
   display: grid;
   gap: 10px;
+  min-height: 0;
   overflow-y: auto;
   align-content: start;
   grid-auto-rows: max-content;
@@ -3062,6 +3151,7 @@ textarea {
 .post-detail-body {
   padding: 12px;
   overflow-y: auto;
+  min-width: 0;
 }
 
 .post-detail-meta {
@@ -3081,6 +3171,14 @@ textarea {
   font-size: 13px;
   line-height: 1.65;
   color: #35506a;
+}
+
+.post-detail-heading,
+.post-detail-content,
+.post-detail-preview p,
+.post-detail-tags {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .post-detail-image {
@@ -3197,6 +3295,7 @@ textarea {
   background: linear-gradient(180deg, #fbfdff 0%, #f8fbff 100%);
   align-content: start;
   grid-auto-rows: max-content;
+  min-width: 0;
 }
 
 .comment-item {
@@ -3204,6 +3303,7 @@ textarea {
   border-radius: 12px;
   background: #ffffff;
   padding: 9px 10px;
+  min-width: 0;
 }
 
 .comment-item.is-reply {
@@ -3335,19 +3435,6 @@ textarea {
   opacity: 0.75;
 }
 
-.comment-reply-meta {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid #d6e5f7;
-  border-radius: 10px;
-  background: #f4f9ff;
-  padding: 6px 9px;
-  font-size: 11px;
-  color: #42648a;
-}
-
 .comment-retry-btn {
   min-height: 28px;
   border: 1px solid #e0bcc0;
@@ -3374,14 +3461,15 @@ textarea {
   padding: 10px 12px 12px;
   border-top: 1px solid #e7eef7;
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
   background: #ffffff;
 }
 
 .comment-form textarea {
+  grid-column: 1 / -1;
   width: 100%;
-  min-height: 42px;
+  min-height: 78px;
   max-height: 92px;
   resize: vertical;
   border: 1px solid #d4e1ee;
@@ -3399,13 +3487,19 @@ textarea {
 }
 
 .comment-send-btn {
-  min-width: 76px;
+  min-width: 92px;
+  min-height: 48px;
+  align-self: end;
   justify-self: end;
+  border-radius: 16px;
+  padding: 0 20px;
 }
 
 .comment-upload-row {
+  min-width: 0;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -3422,8 +3516,10 @@ textarea {
 }
 
 .comment-upload-meta {
+  min-width: 0;
   font-size: 11px;
   color: #6a8199;
+  overflow-wrap: anywhere;
 }
 
 .post-composer-form {

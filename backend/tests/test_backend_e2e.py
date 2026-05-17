@@ -22,8 +22,13 @@ os.environ["QA_MODEL"] = ""
 from app.core.config import settings
 from app.core.passwords import PBKDF2_ALGORITHM, hash_password, needs_password_rehash, verify_password
 from app.core.database import SessionLocal
+from app.models.comment import Comment
+from app.models.comment_like import CommentLike
+from app.models.message import MessageNotification
 from app.models.post import Post
 from app.models.post_adoption import PostAdoption
+from app.models.post_like import PostLike
+from app.models.post_save import PostSave
 from app.models.user import User
 
 DB_FILE = Path("pytest_e2e.db")
@@ -34,6 +39,7 @@ from app.main import app  # noqa: E402
 from app.services.document_upload_service import MAX_DOCUMENT_BYTES, document_upload_service  # noqa: E402
 from app.services.evolution_service import evolution_service  # noqa: E402
 from app.services.knowledge_cache_service import knowledge_cache_service  # noqa: E402
+from app.services.maintenance_service import maintenance_service  # noqa: E402
 from app.services.wechat_service import wechat_service  # noqa: E402
 from scripts.seed_hbu_kb import seed_local_documents  # noqa: E402
 
@@ -347,6 +353,15 @@ def test_backend_e2e_flow() -> None:
         assert knowledge_deep.status_code == 200
         assert "rerank_used" in knowledge_deep.json()
 
+        knowledge_postal = client.post(
+            "/api/client/knowledge/ask",
+            json={"query": "河北大学邮编是多少", "history": []},
+            headers=client_headers,
+        )
+        assert knowledge_postal.status_code == 200
+        assert "071002" in str(knowledge_postal.json().get("answer", ""))
+        assert knowledge_postal.json().get("citations")
+
         knowledge_isec = client.post(
             "/api/client/knowledge/ask",
             json={"query": "河北大学软件工程ISEC是什么", "history": []},
@@ -536,6 +551,319 @@ def test_backend_e2e_flow() -> None:
             headers=client_headers,
         )
         assert logout.status_code == 200
+
+
+def test_deleted_post_and_comment_cleanup_message_counts() -> None:
+    with TestClient(app) as client:
+        suffix = uuid4().hex[:8]
+        a_register = client.post(
+            "/api/client/auth/register",
+            json={"username": f"delete_a_{suffix}", "display_name": "delete A", "password": "demo123"},
+        )
+        assert a_register.status_code == 200, a_register.text
+        b_register = client.post(
+            "/api/client/auth/register",
+            json={"username": f"delete_b_{suffix}", "display_name": "delete B", "password": "demo123"},
+        )
+        assert b_register.status_code == 200, b_register.text
+        a_headers = {"Authorization": f"Bearer {a_register.json()['access_token']}"}
+        b_headers = {"Authorization": f"Bearer {b_register.json()['access_token']}"}
+
+        created = client.post(
+            "/api/client/feed/post/create",
+            json={
+                "category": "study",
+                "title": f"delete cleanup regression {suffix}",
+                "content": "post deletion must clear related likes, saves, and notifications",
+                "tags": ["regression"],
+            },
+            headers=a_headers,
+        )
+        assert created.status_code == 200, created.text
+        post_id = str(created.json().get("id", ""))
+        assert post_id.startswith("p-")
+
+        b_comment = client.post(
+            "/api/client/feed/comment/create",
+            json={"post_id": post_id, "content": "comment like cleanup", "client_id": f"comment-{suffix}"},
+            headers=b_headers,
+        )
+        assert b_comment.status_code == 200, b_comment.text
+        comment_id = str(b_comment.json().get("id", ""))
+
+        a_like_comment = client.post(
+            "/api/client/feed/comment/like",
+            json={"comment_id": comment_id, "liked": True},
+            headers=a_headers,
+        )
+        assert a_like_comment.status_code == 200, a_like_comment.text
+        b_unread_after_comment_like = client.get("/api/client/messages/unread-count", headers=b_headers)
+        assert b_unread_after_comment_like.status_code == 200
+        assert b_unread_after_comment_like.json().get("likes_total") == 1
+
+        delete_comment = client.post(
+            "/api/client/feed/comment/delete",
+            json={"post_id": post_id, "comment_id": comment_id},
+            headers=b_headers,
+        )
+        assert delete_comment.status_code == 200, delete_comment.text
+        b_unread_after_comment_delete = client.get("/api/client/messages/unread-count", headers=b_headers)
+        assert b_unread_after_comment_delete.status_code == 200
+        assert b_unread_after_comment_delete.json().get("likes_total") == 0
+        b_like_messages_after_comment_delete = client.get("/api/client/messages/likes", headers=b_headers)
+        assert b_like_messages_after_comment_delete.status_code == 200
+        assert all(
+            str(item.get("post_id")) != post_id
+            for item in (b_like_messages_after_comment_delete.json().get("items") or [])
+        )
+
+        b_like_post = client.post(
+            "/api/client/feed/like",
+            json={"post_id": post_id, "liked": True},
+            headers=b_headers,
+        )
+        assert b_like_post.status_code == 200, b_like_post.text
+        b_save_post = client.post(
+            "/api/client/feed/save",
+            json={"post_id": post_id, "saved": True},
+            headers=b_headers,
+        )
+        assert b_save_post.status_code == 200, b_save_post.text
+
+        a_summary_before_delete = client.get("/api/client/profile/summary", headers=a_headers)
+        assert a_summary_before_delete.status_code == 200
+        assert a_summary_before_delete.json().get("likes") == 1
+        a_unread_before_delete = client.get("/api/client/messages/unread-count", headers=a_headers)
+        assert a_unread_before_delete.status_code == 200
+        assert a_unread_before_delete.json().get("likes_total") == 1
+        b_unread_before_delete = client.get("/api/client/messages/unread-count", headers=b_headers)
+        assert b_unread_before_delete.status_code == 200
+        assert b_unread_before_delete.json().get("saved_total") == 1
+
+        delete_post = client.post(
+            "/api/client/feed/post/delete",
+            json={"post_id": post_id},
+            headers=a_headers,
+        )
+        assert delete_post.status_code == 200, delete_post.text
+        assert delete_post.json().get("deleted") is True
+
+        a_summary_after_delete = client.get("/api/client/profile/summary", headers=a_headers)
+        assert a_summary_after_delete.status_code == 200
+        assert a_summary_after_delete.json().get("likes") == 0
+        a_unread_after_delete = client.get("/api/client/messages/unread-count", headers=a_headers)
+        assert a_unread_after_delete.status_code == 200
+        assert a_unread_after_delete.json().get("likes_total") == 0
+        assert a_unread_after_delete.json().get("likes_unread") == 0
+        a_like_messages_after_delete = client.get("/api/client/messages/likes", headers=a_headers)
+        assert a_like_messages_after_delete.status_code == 200
+        assert all(
+            str(item.get("post_id")) != post_id
+            for item in (a_like_messages_after_delete.json().get("items") or [])
+        )
+
+        b_unread_after_delete = client.get("/api/client/messages/unread-count", headers=b_headers)
+        assert b_unread_after_delete.status_code == 200
+        assert b_unread_after_delete.json().get("saved_total") == 0
+        b_saved_after_delete = client.get("/api/client/messages/saved", headers=b_headers)
+        assert b_saved_after_delete.status_code == 200
+        assert all(str(item.get("post_id")) != post_id for item in (b_saved_after_delete.json().get("items") or []))
+        b_liked_posts_after_delete = client.get("/api/client/profile/liked-posts", headers=b_headers)
+        assert b_liked_posts_after_delete.status_code == 200
+        assert all(str(item.get("id")) != post_id for item in (b_liked_posts_after_delete.json().get("items") or []))
+
+
+def test_duplicate_comment_text_likes_are_all_listed() -> None:
+    with TestClient(app) as client:
+        suffix = uuid4().hex[:8]
+        author = client.post(
+            "/api/client/auth/register",
+            json={"username": f"dup_comment_author_{suffix}", "display_name": "dup author", "password": "demo123"},
+        )
+        assert author.status_code == 200, author.text
+        liker = client.post(
+            "/api/client/auth/register",
+            json={"username": f"dup_comment_liker_{suffix}", "display_name": "dup liker", "password": "demo123"},
+        )
+        assert liker.status_code == 200, liker.text
+        author_headers = {"Authorization": f"Bearer {author.json()['access_token']}"}
+        liker_headers = {"Authorization": f"Bearer {liker.json()['access_token']}"}
+
+        post = client.post(
+            "/api/client/feed/post/create",
+            json={
+                "category": "study",
+                "title": f"duplicate comment like regression {suffix}",
+                "content": "same comment text should still create separate like records",
+                "tags": ["regression"],
+            },
+            headers=liker_headers,
+        )
+        assert post.status_code == 200, post.text
+        post_id = str(post.json().get("id", ""))
+
+        comment_ids: list[str] = []
+        for idx in range(2):
+            comment = client.post(
+                "/api/client/feed/comment/create",
+                json={"post_id": post_id, "content": "1", "client_id": f"dup-comment-{suffix}-{idx}"},
+                headers=author_headers,
+            )
+            assert comment.status_code == 200, comment.text
+            comment_ids.append(str(comment.json().get("id", "")))
+
+        for comment_id in comment_ids:
+            like = client.post(
+                "/api/client/feed/comment/like",
+                json={"comment_id": comment_id, "liked": True},
+                headers=liker_headers,
+            )
+            assert like.status_code == 200, like.text
+
+        unread = client.get("/api/client/messages/unread-count", headers=author_headers)
+        assert unread.status_code == 200
+        assert unread.json().get("likes_total") == 2
+
+        likes = client.get("/api/client/messages/likes", headers=author_headers)
+        assert likes.status_code == 200
+        matching = [
+            item for item in (likes.json().get("items") or [])
+            if str(item.get("post_id")) == post_id and "评论赞：1" in str(item.get("main"))
+        ]
+        assert len(matching) == 2
+
+
+def test_adoption_prune_and_maintenance_cleanup_cascade_related_rows() -> None:
+    with TestClient(app) as client:
+        suffix = uuid4().hex[:8]
+        a_register = client.post(
+            "/api/client/auth/register",
+            json={"username": f"cascade_a_{suffix}", "display_name": "cascade A", "password": "demo123"},
+        )
+        assert a_register.status_code == 200, a_register.text
+        b_register = client.post(
+            "/api/client/auth/register",
+            json={"username": f"cascade_b_{suffix}", "display_name": "cascade B", "password": "demo123"},
+        )
+        assert b_register.status_code == 200, b_register.text
+        c_register = client.post(
+            "/api/client/auth/register",
+            json={"username": f"cascade_c_{suffix}", "display_name": "cascade C", "password": "demo123"},
+        )
+        assert c_register.status_code == 200, c_register.text
+        a_headers = {"Authorization": f"Bearer {a_register.json()['access_token']}"}
+        b_headers = {"Authorization": f"Bearer {b_register.json()['access_token']}"}
+        c_headers = {"Authorization": f"Bearer {c_register.json()['access_token']}"}
+
+        first_post = client.post(
+            "/api/client/feed/post/create",
+            json={
+                "category": "study",
+                "title": f"adoption cascade regression {suffix}",
+                "content": "adoption pruning must clear hidden comment likes",
+                "tags": ["regression"],
+            },
+            headers=a_headers,
+        )
+        assert first_post.status_code == 200, first_post.text
+        first_post_id = str(first_post.json().get("id", ""))
+
+        kept_comment = client.post(
+            "/api/client/feed/comment/create",
+            json={"post_id": first_post_id, "content": "kept comment", "client_id": f"kept-{suffix}"},
+            headers=b_headers,
+        )
+        assert kept_comment.status_code == 200, kept_comment.text
+        kept_comment_id = str(kept_comment.json().get("id", ""))
+        hidden_comment = client.post(
+            "/api/client/feed/comment/create",
+            json={"post_id": first_post_id, "content": "hidden comment", "client_id": f"hidden-{suffix}"},
+            headers=c_headers,
+        )
+        assert hidden_comment.status_code == 200, hidden_comment.text
+        hidden_comment_id = str(hidden_comment.json().get("id", ""))
+
+        like_hidden_comment = client.post(
+            "/api/client/feed/comment/like",
+            json={"comment_id": hidden_comment_id, "liked": True},
+            headers=a_headers,
+        )
+        assert like_hidden_comment.status_code == 200, like_hidden_comment.text
+        c_unread_before_adopt = client.get("/api/client/messages/unread-count", headers=c_headers)
+        assert c_unread_before_adopt.status_code == 200
+        assert c_unread_before_adopt.json().get("likes_total") == 1
+
+        admin_username, admin_password = _admin_credentials()
+        admin_login = client.post(
+            "/api/admin/auth/login",
+            json={"username": admin_username, "password": admin_password},
+        )
+        assert admin_login.status_code == 200, admin_login.text
+        admin_headers = {"Authorization": f"Bearer {admin_login.json()['access_token']}"}
+
+        adopt = client.post(
+            "/api/admin/feed/adopt-comment",
+            json={"post_id": first_post_id, "comment_id": kept_comment_id, "prune_other_comments": True},
+            headers=admin_headers,
+        )
+        assert adopt.status_code == 200, adopt.text
+        assert int(adopt.json().get("pruned_count", 0)) >= 1
+        c_unread_after_adopt = client.get("/api/client/messages/unread-count", headers=c_headers)
+        assert c_unread_after_adopt.status_code == 200
+        assert c_unread_after_adopt.json().get("likes_total") == 0
+        with SessionLocal() as db:
+            raw_hidden_comment_id = int(hidden_comment_id.replace("c-", ""))
+            assert db.scalar(select(func.count()).select_from(CommentLike).where(CommentLike.comment_id == raw_hidden_comment_id)) == 0
+
+        second_post = client.post(
+            "/api/client/feed/post/create",
+            json={
+                "category": "study",
+                "title": f"maintenance cascade regression {suffix}",
+                "content": "maintenance cleanup must cascade all related rows",
+                "tags": ["regression"],
+            },
+            headers=a_headers,
+        )
+        assert second_post.status_code == 200, second_post.text
+        second_post_id = str(second_post.json().get("id", ""))
+        second_comment = client.post(
+            "/api/client/feed/comment/create",
+            json={"post_id": second_post_id, "content": "stale comment", "client_id": f"stale-{suffix}"},
+            headers=b_headers,
+        )
+        assert second_comment.status_code == 200, second_comment.text
+        second_comment_id = str(second_comment.json().get("id", ""))
+        assert client.post("/api/client/feed/like", json={"post_id": second_post_id, "liked": True}, headers=b_headers).status_code == 200
+        assert client.post("/api/client/feed/save", json={"post_id": second_post_id, "saved": True}, headers=b_headers).status_code == 200
+        assert client.post("/api/client/feed/comment/like", json={"comment_id": second_comment_id, "liked": True}, headers=a_headers).status_code == 200
+
+        raw_second_post_id = int(second_post_id.replace("p-", ""))
+        raw_second_comment_id = int(second_comment_id.replace("c-", ""))
+        with SessionLocal() as db:
+            stale_post = db.get(Post, raw_second_post_id)
+            assert stale_post is not None
+            stale_post.created_at = datetime.now(tz=timezone.utc) - timedelta(days=3)
+            stale_post.adopted = False
+            db.add(stale_post)
+            db.commit()
+
+        cleanup = maintenance_service.cleanup_stale_unadopted_posts(days=1)
+        assert int(cleanup.get("deleted_posts", 0)) >= 1
+        with SessionLocal() as db:
+            assert db.get(Post, raw_second_post_id) is None
+            assert db.scalar(select(func.count()).select_from(Comment).where(Comment.post_id == raw_second_post_id)) == 0
+            assert db.scalar(select(func.count()).select_from(PostLike).where(PostLike.post_id == raw_second_post_id)) == 0
+            assert db.scalar(select(func.count()).select_from(PostSave).where(PostSave.post_id == raw_second_post_id)) == 0
+            assert db.scalar(select(func.count()).select_from(CommentLike).where(CommentLike.comment_id == raw_second_comment_id)) == 0
+            assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(MessageNotification)
+                    .where(MessageNotification.source_post_id == raw_second_post_id)
+                )
+                == 0
+            )
 
 
 def test_admin_login_rate_limit() -> None:

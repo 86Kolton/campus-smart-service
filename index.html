@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>校园助手</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-  <link rel="stylesheet" href="./styles.css?v=20260410-1">
+  <link rel="stylesheet" href="./styles.css?v=20260517-10">
 </head>
 <body>
   <div class="ambient" aria-hidden="true">
@@ -85,10 +85,10 @@
 
               <section class="card hot-card">
                 <div class="card-head">
-                  <h3>首页 2 小时热帖</h3>
+                  <h3 id="homeHotTitle">首页 2 小时热帖</h3>
                   <span class="hot-pill">HOT</span>
                 </div>
-                <p class="hot-topic">今日话题：二食堂高峰排队是否明显改善？</p>
+                <p id="homeHotTopic" class="hot-topic">今日话题：二食堂高峰排队是否明显改善？</p>
 
                 <div class="hot-list" id="homeHotList">
                   <button class="hot-row" data-hot="二食堂清汤窗口排队更快吗？">
@@ -186,10 +186,12 @@
               </article>
 
               <article class="card rank-card">
-                <h4>论坛 24 小时热文</h4>
-                <button class="rank-row" data-hot="二手显示器验机建议"><span>1</span><em>二手显示器验机建议</em><i>6.2k</i></button>
-                <button class="rank-row" data-hot="考研自习室插座分布"><span>2</span><em>考研自习室插座分布</em><i>5.5k</i></button>
-                <button class="rank-row" data-hot="周末校车末班时间"><span>3</span><em>周末校车末班时间</em><i>4.9k</i></button>
+                <h4 id="rankHotTitle">论坛 24 小时热文</h4>
+                <div id="rankHotList">
+                  <button class="rank-row" data-hot="二手显示器验机建议"><span>1</span><em>二手显示器验机建议</em><i>6.2k</i></button>
+                  <button class="rank-row" data-hot="考研自习室插座分布"><span>2</span><em>考研自习室插座分布</em><i>5.5k</i></button>
+                  <button class="rank-row" data-hot="周末校车末班时间"><span>3</span><em>周末校车末班时间</em><i>4.9k</i></button>
+                </div>
               </article>
             </section>
 
@@ -255,9 +257,9 @@
                   <strong id="profilePostCount">28</strong>
                   <span>发帖</span>
                 </button>
-                <button class="stat-item" data-stat-action="likedPosts">
+                <button class="stat-item" data-stat-action="receivedLikes" aria-label="查看收到的赞">
                   <strong id="profileLikeCount">176</strong>
-                  <span>获赞</span>
+                  <span>收到的赞</span>
                 </button>
               </article>
 
@@ -410,9 +412,9 @@
               <h5>即时需求池</h5>
               <p>发布需求后 10 分钟内优先推送给附近同学，支持到达提醒与费用透明。</p>
               <div class="errand-kpis">
-                <div><strong id="errandOpenCount">0</strong><span>待接单</span></div>
-                <div><strong id="errandInProgressCount">0</strong><span>进行中</span></div>
-                <div><strong id="errandDoneCount">0</strong><span>今日完成</span></div>
+                <button type="button" data-errand-status-filter="open" aria-pressed="false" aria-label="筛选待接单任务"><strong id="errandOpenCount">0</strong><span>待接单</span></button>
+                <button type="button" data-errand-status-filter="inprogress" aria-pressed="false" aria-label="筛选进行中任务"><strong id="errandInProgressCount">0</strong><span>进行中</span></button>
+                <button type="button" data-errand-status-filter="done" aria-pressed="false" aria-label="筛选今日完成任务"><strong id="errandDoneCount">0</strong><span>今日完成</span></button>
               </div>
             </div>
             <div class="errand-filters">
@@ -508,10 +510,6 @@
             </header>
             <div id="commentList" class="comment-list"></div>
             <form id="commentForm" class="comment-form">
-              <div id="commentReplyMeta" class="comment-reply-meta" hidden>
-                <span id="commentReplyText">回复</span>
-                <button id="commentReplyCancelBtn" class="text-btn" type="button">取消回复</button>
-              </div>
               <textarea id="commentInput" rows="2" maxlength="200" placeholder="说点什么..." aria-label="评论输入"></textarea>
               <div class="comment-upload-row">
                 <label class="comment-upload-btn" for="commentImageInput">添加图片（<=1MB）</label>
@@ -582,7 +580,7 @@
     </div>
   </div>
 
-  <script src="./app.js?v=20260410-1"></script>
+  <script src="./app.js?v=20260517-10"></script>
 </body>
 </html>
 

@@ -21,6 +21,7 @@ services:
       - qdrant
     volumes:
       - uploads_data:/app/data/uploads
+      - evolution_data:/app/data/evolution
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   worker:
@@ -41,6 +42,7 @@ services:
       - qdrant
     volumes:
       - uploads_data:/app/data/uploads
+      - evolution_data:/app/data/evolution
     command: celery -A app.tasks.celery_app.celery_app worker -l info
 
   postgres:
@@ -71,3 +73,4 @@ volumes:
   pg_data:
   qdrant_data:
   uploads_data:
+  evolution_data:

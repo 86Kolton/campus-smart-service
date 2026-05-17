@@ -27,7 +27,11 @@ async function shot(page, name) {
   ensureShotDir();
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const out = path.join(SHOT_DIR, `${stamp}_${name}.png`);
-  await page.screenshot({ path: out, fullPage: true });
+  try {
+    await page.screenshot({ path: out, fullPage: true });
+  } catch (error) {
+    await page.screenshot({ path: out, fullPage: false });
+  }
 }
 
 test("client + admin full visible regression", async ({ page }) => {

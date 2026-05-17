@@ -298,6 +298,11 @@ class HomeHotTopicItem(BaseModel):
     id: str
     title: str
     heat: str
+    post_id: str = ""
+    source_type: str = "feed"
+    query: str = ""
+    is_recent: bool = True
+    created_at: str = ""
 
 
 class HomeHotTopicResponse(BaseModel):
