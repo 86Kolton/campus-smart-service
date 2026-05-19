@@ -77,6 +77,17 @@ class DocumentListResponse(BaseModel):
     items: list[DocumentItem]
 
 
+class DocumentContentResponse(BaseModel):
+    document: DocumentItem
+    content: str
+    editable: bool = True
+
+
+class DocumentContentUpdateRequest(BaseModel):
+    content: str
+    reindex: bool = True
+
+
 class QALogItem(BaseModel):
     id: int
     query_text: str
@@ -145,6 +156,14 @@ class CleanupStalePostsResponse(BaseModel):
     deleted_comment_assets: int
 
 
+class ReconcileInteractionCountsResponse(BaseModel):
+    checked_posts: int
+    fixed_post_likes: int
+    fixed_post_comments: int
+    checked_comments: int
+    fixed_comment_likes: int
+
+
 class AdoptionRecord(BaseModel):
     post_id: str
     post_title: str
@@ -157,6 +176,15 @@ class AdoptionRecord(BaseModel):
 
 class AdoptionListResponse(BaseModel):
     items: list[AdoptionRecord]
+
+
+class AdoptionRepairResponse(BaseModel):
+    checked_posts: int
+    created_adoptions: int
+    skipped_without_comment: int
+    cleared_orphan_adopted_flags: int = 0
+    remaining_missing: int
+    latest_repaired_at: str = ""
 
 
 class DevCheckItem(BaseModel):
@@ -177,6 +205,9 @@ class DevStatusResponse(BaseModel):
     qa_log_count: int
     qdrant_configured: bool
     qa_configured: bool
+    document_ocr_configured: bool = False
+    evolution_ai_review_configured: bool = False
+    evolution_ai_review_provider: str = ""
     rerank_configured: bool
     wechat_configured: bool
     embedding_provider: str

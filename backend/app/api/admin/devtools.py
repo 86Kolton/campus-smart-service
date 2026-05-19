@@ -49,6 +49,9 @@ async def devtools_status() -> DevStatusResponse:
         qa_log_count=qa_log_count,
         qdrant_configured=bool(settings.qdrant_url),
         qa_configured=bool(settings.qa_base_url and settings.qa_api_key and settings.qa_model),
+        document_ocr_configured=bool(settings.document_ocr_configured),
+        evolution_ai_review_configured=bool(settings.evolution_ai_review_configured),
+        evolution_ai_review_provider=settings.evolution_ai_review_provider_effective,
         rerank_configured=bool(settings.rerank_provider != "none" and settings.rerank_base_url and settings.rerank_model),
         wechat_configured=bool(settings.wechat_app_id and settings.wechat_app_secret),
         embedding_provider=str(settings.embedding_provider or "local_stub"),
@@ -89,8 +92,43 @@ async def devtools_self_check() -> DevSelfCheckResponse:
         items.append(DevCheckItem(name="uploads", passed=False, detail=f"uploads_error:{exc}"))
 
     # Config checks
-    items.append(DevCheckItem(name="qa_config", passed=bool(settings.qa_base_url and settings.qa_model), detail="qa_base_url+model"))
-    items.append(DevCheckItem(name="qdrant_config", passed=bool(settings.qdrant_url), detail="qdrant_url"))
+    qa_ready = bool(settings.qa_base_url and settings.qa_api_key and settings.qa_model)
+    items.append(
+        DevCheckItem(
+            name="qa_config",
+            passed=qa_ready,
+            detail="qa_model_ready" if qa_ready else "qa_missing_base_url_or_key_or_model",
+        )
+    )
+    ai_provider = settings.evolution_ai_review_provider_effective
+    if not settings.evolution_ai_review_enabled or ai_provider == "none":
+        ai_detail = "ai_review_disabled"
+        ai_ready = True
+    elif settings.evolution_ai_review_configured:
+        ai_ready = True
+        ai_detail = "ai_review_reuse_qa_ready" if ai_provider == "qa_reuse" else "ai_review_dedicated_ready"
+    else:
+        ai_ready = False
+        ai_detail = "ai_review_missing_base_url_or_key_or_model"
+    items.append(DevCheckItem(name="evolution_ai_review_config", passed=ai_ready, detail=ai_detail))
+    items.append(
+        DevCheckItem(
+            name="document_ocr_config",
+            passed=bool(not settings.document_ocr_enabled or settings.document_ocr_configured),
+            detail=(
+                "ocr_model_ready"
+                if settings.document_ocr_configured
+                else "ocr_optional_but_not_configured"
+            ),
+        )
+    )
+    items.append(
+        DevCheckItem(
+            name="qdrant_config",
+            passed=True,
+            detail="qdrant_url_configured" if settings.qdrant_url else "qdrant_optional_local_fallback",
+        )
+    )
     items.append(
         DevCheckItem(
             name="wechat_config",

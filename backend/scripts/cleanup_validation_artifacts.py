@@ -15,19 +15,14 @@ from app.models.errand_task import ErrandTask
 from app.models.post import Post
 from app.models.user import User
 from app.services.bootstrap_service import bootstrap_database
-from app.services.post_service import post_service
+from app.services.post_service import is_public_feed_artifact, post_service
 
 
 VALIDATION_PATTERN = re.compile(r"(验证贴\s*[ab]?|图文验证贴|验证跑腿|domain-current|local-current|smoke_[ab]_)", re.IGNORECASE)
 
 
 def should_cleanup_post(post: Post, author_username: str) -> bool:
-    haystack = " ".join([
-        str(post.title or ""),
-        str(post.content or ""),
-        str(author_username or ""),
-    ])
-    return bool(VALIDATION_PATTERN.search(haystack))
+    return is_public_feed_artifact(post, author_username=author_username)
 
 
 def should_cleanup_errand(task: ErrandTask, author_username: str) -> bool:

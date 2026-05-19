@@ -1,5 +1,6 @@
 const { apiRequest, uploadFile } = require("../../utils/request");
 const { buildApiUrl } = require("../../config/env");
+const { compressImageForUpload } = require("../../utils/image");
 const { decodeRouteText, normalizePostId } = require("../../utils/ui");
 
 const CATEGORY_OPTIONS = [
@@ -73,6 +74,17 @@ function chooseSingleImage() {
   });
 }
 
+function formatImageSize(bytes = 0) {
+  const size = Number(bytes || 0);
+  if (size <= 0) return "";
+  if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)}MB`;
+  return `${Math.max(1, Math.round(size / 1024))}KB`;
+}
+
+function isUserCancel(error) {
+  return /cancel/i.test(String(error && (error.errMsg || error.message) || ""));
+}
+
 Page({
   data: {
     mode: "detail",
@@ -84,6 +96,7 @@ Page({
     commentInput: "",
     commentInputFocus: false,
     commentImagePath: "",
+    commentImageMeta: "",
     replyTarget: null,
     commentSubmitting: false,
     loading: false,
@@ -95,6 +108,7 @@ Page({
     draftTags: "",
     draftHint: "",
     draftImagePath: "",
+    draftImageMeta: "",
     postSubmitting: false,
     postDeleting: false,
     postLiking: false,
@@ -218,10 +232,50 @@ Page({
   onInputDraftTags(event) { this.setData({ draftTags: event.detail.value || "" }); },
   onSelectCategory(event) { this.setData({ draftCategory: event.currentTarget.dataset.category || "study" }); },
 
-  async chooseCommentImage() { try { this.setData({ commentImagePath: await chooseSingleImage() }); } catch (error) {} },
-  async chooseDraftImage() { try { this.setData({ draftImagePath: await chooseSingleImage() }); } catch (error) {} },
-  removeCommentImage() { this.setData({ commentImagePath: "" }); },
-  removeDraftImage() { this.setData({ draftImagePath: "" }); },
+  async chooseCommentImage() {
+    let loadingShown = false;
+    try {
+      const pickedPath = await chooseSingleImage();
+      wx.showLoading({ title: "压缩图片中" });
+      loadingShown = true;
+      const compressed = await compressImageForUpload(pickedPath);
+      wx.hideLoading();
+      loadingShown = false;
+      this.setData({
+        commentImagePath: compressed.path,
+        commentImageMeta: compressed.compressed
+          ? `已自动压缩至 ${formatImageSize(compressed.size)}`
+        : `图片 ${formatImageSize(compressed.size)}`
+      });
+    } catch (error) {
+      if (loadingShown) wx.hideLoading();
+      if (isUserCancel(error)) return;
+      wx.showToast({ title: error && error.message || "图片处理失败", icon: "none" });
+    }
+  },
+  async chooseDraftImage() {
+    let loadingShown = false;
+    try {
+      const pickedPath = await chooseSingleImage();
+      wx.showLoading({ title: "压缩图片中" });
+      loadingShown = true;
+      const compressed = await compressImageForUpload(pickedPath);
+      wx.hideLoading();
+      loadingShown = false;
+      this.setData({
+        draftImagePath: compressed.path,
+        draftImageMeta: compressed.compressed
+          ? `已自动压缩至 ${formatImageSize(compressed.size)}`
+        : `图片 ${formatImageSize(compressed.size)}`
+      });
+    } catch (error) {
+      if (loadingShown) wx.hideLoading();
+      if (isUserCancel(error)) return;
+      wx.showToast({ title: error && error.message || "图片处理失败", icon: "none" });
+    }
+  },
+  removeCommentImage() { this.setData({ commentImagePath: "", commentImageMeta: "" }); },
+  removeDraftImage() { this.setData({ draftImagePath: "", draftImageMeta: "" }); },
 
   startReply(event) {
     const commentId = String(event.currentTarget.dataset.commentId || "");
@@ -319,6 +373,7 @@ Page({
       this.setData({
         commentInput: "",
         commentImagePath: "",
+        commentImageMeta: "",
         replyTarget: null,
         commentInputFocus: false,
         commentSubmitting: false

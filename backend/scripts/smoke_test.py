@@ -216,6 +216,10 @@ def run() -> None:
             "cleanup-stale",
             client.post("/api/admin/maintenance/cleanup-stale-posts?days=7", headers=admin_headers).status_code == 200,
         )
+        add(
+            "reconcile-counts",
+            client.post("/api/admin/maintenance/reconcile-interaction-counts", headers=admin_headers).status_code == 200,
+        )
         add("edu-auth-guard", client.get("/api/client/edu/overview").status_code == 401)
         add(
             "edu-overview",

@@ -109,6 +109,7 @@
     <view class="menu-row" data-action="likedPosts" bindtap="onTapMenu"><text>我的点赞</text><text class="menu-hint">进入</text></view>
     <view class="menu-row" data-action="publicName" bindtap="onTapMenu"><text>发言显示名</text><text class="menu-hint">{{summary ? summary.public_name : '赵同学'}}</text></view>
     <view class="menu-row" data-action="webLogin" bindtap="onTapMenu"><text>网页互通登录</text><text class="menu-hint">进入</text></view>
+    <view class="menu-row" data-action="logoutWebSessions" bindtap="onTapMenu"><text>退出所有网页端</text><text class="menu-hint">保护隐私</text></view>
     <view class="menu-row" data-action="wechatBind" bindtap="onTapMenu"><text>微信登录/绑定</text><text class="menu-hint">{{summary && summary.wechat_bound ? '已绑定' : '未绑定'}}</text></view>
     <view class="menu-row" data-action="privacy" bindtap="onTapMenu"><text>公开展示说明</text><text class="menu-hint">查看</text></view>
   </view>

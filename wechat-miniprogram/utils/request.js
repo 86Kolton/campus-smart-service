@@ -56,8 +56,15 @@ function clearTokens() {
 }
 
 function parseErrorMessage(responseData, statusCode) {
+  if (statusCode === 413) return "图片过大，已超过上传限制，请重新选择图片";
   if (responseData && typeof responseData === "object") {
-    if (typeof responseData.detail === "string" && responseData.detail.trim()) return responseData.detail;
+    if (typeof responseData.detail === "string" && responseData.detail.trim()) {
+      if (responseData.detail === "image_too_large") return "图片过大，请压缩后重新上传";
+      if (responseData.detail === "image_format_not_supported" || responseData.detail === "image_mime_not_supported") return "图片格式不支持，请选择 jpg、png、webp 或 gif";
+      if (responseData.detail === "wechat_bind_required") return "请先完成微信登录/绑定后再继续";
+      if (responseData.detail === "web_session_relogin_required") return "网页登录已过期，请重新生成登录码";
+      return responseData.detail;
+    }
     if (typeof responseData.message === "string" && responseData.message.trim()) return responseData.message;
   }
   if (statusCode === 404) return "当前接口或内容不存在";
@@ -71,6 +78,13 @@ function parseErrorMessage(responseData, statusCode) {
     return text;
   }
   return statusCode ? `http_${statusCode}` : "request_failed";
+}
+
+function isWechatBindRequiredError(error) {
+  const detail = String((error && error.data && error.data.detail) || (error && error.message) || "").trim();
+  return Number(error && error.statusCode || 0) === 403 && (
+    detail === "wechat_bind_required" || detail.includes("微信登录") || detail.includes("绑定")
+  );
 }
 
 function buildAuthHeader(auth = true, extraHeader = {}) {
@@ -170,4 +184,4 @@ async function uploadFile(options, retryOn401 = true) {
   }
 }
 
-module.exports = { apiRequest, clearTokens, getTokenInfo, refreshAccessToken, saveTokens, uploadFile };
+module.exports = { apiRequest, clearTokens, getTokenInfo, isWechatBindRequiredError, refreshAccessToken, saveTokens, uploadFile };

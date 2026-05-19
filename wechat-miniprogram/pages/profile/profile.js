@@ -295,6 +295,7 @@ Page({
     if (action === "likedPosts") return this.openProfileList("liked");
     if (action === "publicName") return this.openAccount();
     if (action === "webLogin") return wx.navigateTo({ url: "/pages/web-login/web-login" });
+    if (action === "logoutWebSessions") return this.logoutWebSessions();
     if (action === "wechatBind") return this.handleWechatLogin();
     if (action === "privacy") {
       wx.showModal({
@@ -302,6 +303,17 @@ Page({
         content: "个人资料、登录状态和教务数据统一由服务端维护。真实姓名只在“我的”页保留，帖子、评论和消息提醒对外仅展示公开昵称。",
         showCancel: false
       });
+    }
+  },
+
+  async logoutWebSessions() {
+    try {
+      const app = getApp();
+      await app.ensureSession();
+      await apiRequest({ url: "/api/client/auth/logout-web-sessions", method: "POST" });
+      wx.showToast({ title: "已退出所有网页端", icon: "none" });
+    } catch (error) {
+      wx.showToast({ title: (error && error.message) || "退出网页端失败", icon: "none" });
     }
   },
 

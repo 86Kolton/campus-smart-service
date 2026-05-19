@@ -17,6 +17,7 @@ class ClientIdentity:
     user_id: int
     username: str
     wechat_bound: bool = False
+    session_type: str = "app"
 
 
 def require_admin_token(
@@ -69,10 +70,17 @@ def require_client_identity(
 
     if user_id <= 0 or not username or not jti:
         raise HTTPException(status_code=401, detail="client_token_invalid")
-    if token_service.is_token_revoked(jti):
+    session_type = str(payload.get("sid", "") or "app").strip() or "app"
+    issued_at = payload.get("iat")
+    if token_service.is_client_access_token_revoked(
+        jti=jti,
+        user_id=user_id,
+        session_type=session_type,
+        issued_at=issued_at,
+    ):
         raise HTTPException(status_code=401, detail="client_token_revoked")
 
-    return ClientIdentity(user_id=user_id, username=username)
+    return ClientIdentity(user_id=user_id, username=username, session_type=session_type)
 
 
 def require_wechat_bound_client(
@@ -85,4 +93,9 @@ def require_wechat_bound_client(
         raise HTTPException(status_code=403, detail="client_forbidden")
     if not str(user.wechat_openid or "").strip():
         raise HTTPException(status_code=403, detail="wechat_bind_required")
-    return ClientIdentity(user_id=identity.user_id, username=identity.username, wechat_bound=True)
+    return ClientIdentity(
+        user_id=identity.user_id,
+        username=identity.username,
+        wechat_bound=True,
+        session_type=identity.session_type,
+    )

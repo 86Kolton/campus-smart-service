@@ -49,6 +49,13 @@ class Settings(BaseSettings):
     qa_model: str = Field(default="", alias="QA_MODEL")
     qa_timeout_seconds: int = Field(default=25, alias="QA_TIMEOUT_SECONDS")
 
+    document_ocr_enabled: bool = Field(default=True, alias="DOCUMENT_OCR_ENABLED")
+    document_ocr_base_url: str = Field(default="", alias="DOCUMENT_OCR_BASE_URL")
+    document_ocr_api_key: str = Field(default="", alias="DOCUMENT_OCR_API_KEY")
+    document_ocr_model: str = Field(default="Qwen/Qwen3-VL-32B-Instruct", alias="DOCUMENT_OCR_MODEL")
+    document_ocr_timeout_seconds: int = Field(default=45, alias="DOCUMENT_OCR_TIMEOUT_SECONDS")
+    document_ocr_max_pages: int = Field(default=3, alias="DOCUMENT_OCR_MAX_PAGES")
+
     evolution_ai_review_enabled: bool = Field(default=True, alias="EVOLUTION_AI_REVIEW_ENABLED")
     evolution_ai_review_provider: str = Field(default="qa_reuse", alias="EVOLUTION_AI_REVIEW_PROVIDER")
     evolution_ai_review_base_url: str = Field(default="", alias="EVOLUTION_AI_REVIEW_BASE_URL")
@@ -115,6 +122,57 @@ class Settings(BaseSettings):
         if raw in {"0", "false", "no", "off"}:
             return False
         return self.is_dev_mode
+
+    @property
+    def document_ocr_base_url_effective(self) -> str:
+        return str(self.document_ocr_base_url or self.qa_base_url or "").strip()
+
+    @property
+    def document_ocr_api_key_effective(self) -> str:
+        return str(self.document_ocr_api_key or self.qa_api_key or "").strip()
+
+    @property
+    def document_ocr_configured(self) -> bool:
+        return bool(
+            self.document_ocr_enabled
+            and self.document_ocr_base_url_effective
+            and self.document_ocr_api_key_effective
+            and str(self.document_ocr_model or "").strip()
+        )
+
+    @property
+    def evolution_ai_review_provider_effective(self) -> str:
+        provider = str(self.evolution_ai_review_provider or "qa_reuse").strip().lower()
+        return "qa_reuse" if provider == "" else provider
+
+    @property
+    def evolution_ai_review_base_url_effective(self) -> str:
+        if self.evolution_ai_review_provider_effective == "qa_reuse":
+            return str(self.evolution_ai_review_base_url or self.qa_base_url or "").strip()
+        return str(self.evolution_ai_review_base_url or "").strip()
+
+    @property
+    def evolution_ai_review_api_key_effective(self) -> str:
+        if self.evolution_ai_review_provider_effective == "qa_reuse":
+            return str(self.evolution_ai_review_api_key or self.qa_api_key or "").strip()
+        return str(self.evolution_ai_review_api_key or "").strip()
+
+    @property
+    def evolution_ai_review_model_effective(self) -> str:
+        if self.evolution_ai_review_provider_effective == "qa_reuse":
+            return str(self.evolution_ai_review_model or self.qa_model or "").strip()
+        return str(self.evolution_ai_review_model or "").strip()
+
+    @property
+    def evolution_ai_review_configured(self) -> bool:
+        provider = self.evolution_ai_review_provider_effective
+        return bool(
+            self.evolution_ai_review_enabled
+            and provider != "none"
+            and self.evolution_ai_review_base_url_effective
+            and self.evolution_ai_review_api_key_effective
+            and self.evolution_ai_review_model_effective
+        )
 
     @property
     def startup_issues(self) -> list[str]:

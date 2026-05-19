@@ -15,6 +15,8 @@ from app.services.store import store
 class RAGPipeline:
     _AMBIGUOUS_RE = re.compile(r"^[\dA-Za-z\W_]{1,4}$")
     _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+    _EXTRACTIVE_TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9_\-/.]{2,15}")
+    _EXTRACTIVE_INTENT_RE = re.compile(r"(怎么|如何|入口|使用|登录|访问|打开|在哪|哪里|流程|办理|查询|打印)")
     _SPACE_RE = re.compile(r"\s+")
     _POSTAL_CODE_RE = re.compile(r"(?:邮编|邮政编码)[：:\s]*([0-9]{6})")
     _GREETINGS = {
@@ -134,6 +136,69 @@ class RAGPipeline:
             if match:
                 return f"河北大学的邮编是 {match.group(1)}。"
         return ""
+
+    def _is_low_value_generated_answer(self, answer: str, contexts: list[str]) -> bool:
+        if not contexts:
+            return False
+        text = str(answer or "").strip()
+        compact = self._compact(text)
+        if not compact:
+            return True
+        if "信息不足" in text or "知识库中未检索到" in text:
+            return False
+        if len(compact) <= 16:
+            return True
+        if text.startswith(("-", "·", "•")) and len(compact) <= 32:
+            return True
+        return False
+
+    def _build_extractive_answer(self, query: str, contexts: list[str]) -> str:
+        terms = [item.lower() for item in re.findall(r"[A-Za-z0-9]{2,}|[\u4e00-\u9fff]{2,}", self._compact(query))]
+        picked: list[str] = []
+        seen: set[str] = set()
+
+        for context in contexts:
+            parts = re.split(r"[\n。；;！!？?]+", str(context or ""))
+            for part in parts:
+                clean = re.sub(r"^\d{1,2}月\d{1,2}日[^：:]{0,16}[：:]\s*", "", part).strip()
+                clean = re.sub(r"^[#>\-\s\d.、·•]+", "", clean).strip()
+                if not clean or len(clean) < 8:
+                    continue
+                if clean.startswith("校园论坛录用") or "帖子编号" in clean:
+                    continue
+                clean = re.sub(r"^[\u4e00-\u9fffA-Za-z0-9_]{1,12}[：:]\s*", "", clean).strip()
+                clean = re.sub(r"\s+#\S+(?:\s+#\S+)*\s*$", "", clean).strip()
+                if not clean or len(clean) < 8:
+                    continue
+                if "刷赞风险" in clean or "信息密度" in clean:
+                    continue
+                normalized = self._compact(clean).lower()
+                if not normalized or normalized in seen:
+                    continue
+                if terms and not any(term in normalized for term in terms):
+                    continue
+                seen.add(normalized)
+                picked.append(clean[:90])
+                if len(picked) >= 3:
+                    break
+            if len(picked) >= 3:
+                break
+
+        if not picked:
+            return ""
+        if len(picked) == 1:
+            return f"检索到的资料显示：{picked[0]}。"
+        return "检索到的资料显示：" + "；".join(picked) + "。"
+
+    def _should_answer_extractive_first(self, query: str) -> bool:
+        compact = self._compact(query)
+        if not compact:
+            return False
+        if re.fullmatch(r"[A-Za-z0-9_\-/.]{2,16}", compact):
+            return True
+        if len(compact) > 40 or not self._CJK_RE.search(compact):
+            return False
+        return bool(self._EXTRACTIVE_TOKEN_RE.search(compact) and self._EXTRACTIVE_INTENT_RE.search(compact))
 
     def _recent_user_topic(self, history: list[dict], current_query: str) -> str:
         current = self._compact(current_query)
@@ -259,12 +324,20 @@ class RAGPipeline:
 
         contexts = context_builder.build(reranked, limit=6)
         precise_fact_answer = self._build_precise_fact_answer(original_query, contexts)
+        extractive_first_answer = (
+            self._build_extractive_answer(original_query, contexts)
+            if contexts and self._should_answer_extractive_first(original_query)
+            else ""
+        )
 
         if self._is_greeting(original_query):
             answer = self._build_greeting_answer()
             model_name = "kb-guide"
         elif precise_fact_answer:
             answer = precise_fact_answer
+            model_name = "kb-extract"
+        elif extractive_first_answer:
+            answer = extractive_first_answer
             model_name = "kb-extract"
         elif generic_intent and contexts:
             answer = self._build_intent_answer(generic_intent)
@@ -280,6 +353,11 @@ class RAGPipeline:
             if "知识库中未检索到可支撑该问题的内容" in str(answer) and self._should_offer_guidance(original_query):
                 answer = self._build_guidance_answer(reranked)
                 model_name = "kb-guide"
+            elif self._is_low_value_generated_answer(str(answer), contexts):
+                extractive_answer = self._build_extractive_answer(original_query, contexts)
+                if extractive_answer:
+                    answer = extractive_answer
+                    model_name = "kb-extract"
 
         elapsed_ms = int((time.perf_counter() - start) * 1000)
         citations = []

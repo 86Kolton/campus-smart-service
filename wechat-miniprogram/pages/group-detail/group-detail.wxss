@@ -1,0 +1,62 @@
+@import "../groups/groups.wxss";
+
+.group-detail-page {
+  padding-bottom: 150rpx;
+}
+
+.group-detail-hero {
+  position: relative;
+  overflow: hidden;
+}
+
+.group-detail-hero::after {
+  content: "";
+  position: absolute;
+  right: -42rpx;
+  top: -46rpx;
+  width: 180rpx;
+  height: 180rpx;
+  border-radius: 999rpx;
+  background: rgba(49, 180, 143, 0.1);
+}
+
+.group-detail-title {
+  position: relative;
+  font-size: 40rpx;
+  line-height: 1.25;
+  font-weight: 800;
+  color: #183856;
+  z-index: 1;
+}
+
+.group-detail-sub {
+  position: relative;
+  margin-top: 12rpx;
+  font-size: 25rpx;
+  line-height: 1.65;
+  color: #56718b;
+  z-index: 1;
+}
+
+.group-detail-meta {
+  position: relative;
+  margin-top: 18rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  z-index: 1;
+}
+
+.group-detail-meta view {
+  border: 1rpx solid #d7e4f0;
+  border-radius: 999rpx;
+  background: #f7fbff;
+  color: #244f83;
+  font-size: 23rpx;
+  font-weight: 700;
+  padding: 8rpx 16rpx;
+}
+
+.group-detail-fab {
+  bottom: calc(46rpx + env(safe-area-inset-bottom));
+}

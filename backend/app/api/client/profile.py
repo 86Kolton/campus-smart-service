@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.deps import ClientIdentity, require_client_identity
+from app.api.deps import ClientIdentity, require_wechat_bound_client
 from app.schemas.client import (
     ProfileSettingsResponse,
     ProfileSummaryResponse,
@@ -14,12 +14,12 @@ router = APIRouter()
 
 
 @router.get("/profile/summary", response_model=ProfileSummaryResponse)
-async def profile_summary(identity: ClientIdentity = Depends(require_client_identity)) -> ProfileSummaryResponse:
+async def profile_summary(identity: ClientIdentity = Depends(require_wechat_bound_client)) -> ProfileSummaryResponse:
     return ProfileSummaryResponse(**profile_service.summary(user_id=identity.user_id))
 
 
 @router.get("/profile/settings", response_model=ProfileSettingsResponse)
-async def profile_settings(identity: ClientIdentity = Depends(require_client_identity)) -> ProfileSettingsResponse:
+async def profile_settings(identity: ClientIdentity = Depends(require_wechat_bound_client)) -> ProfileSettingsResponse:
     user = user_service.get_user(identity.user_id)
     if not user:
         raise HTTPException(status_code=404, detail="client_not_found")
@@ -36,7 +36,7 @@ async def profile_settings(identity: ClientIdentity = Depends(require_client_ide
 @router.post("/profile/public-name", response_model=UpdatePublicNameResponse)
 async def update_public_name(
     payload: UpdatePublicNameRequest,
-    identity: ClientIdentity = Depends(require_client_identity),
+    identity: ClientIdentity = Depends(require_wechat_bound_client),
 ) -> UpdatePublicNameResponse:
     try:
         user = user_service.update_public_name(identity.user_id, payload.public_name)

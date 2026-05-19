@@ -1,13 +1,22 @@
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from starlette.concurrency import run_in_threadpool
 
-from app.schemas.admin import DocumentItem, DocumentListResponse
+from app.schemas.admin import DocumentContentResponse, DocumentContentUpdateRequest, DocumentItem, DocumentListResponse
 from app.schemas.common import MessageResponse
 from app.services.document_service import document_service
 from app.services.document_upload_service import document_upload_service
+from app.services.knowledge_cache_service import knowledge_cache_service
 from app.services.kb_service import kb_service
 from app.services.task_service import task_service
 
 router = APIRouter()
+
+UPLOAD_422_ERRORS = {
+    "document_too_large",
+    "document_format_not_supported",
+    "document_mime_not_supported",
+    "document_encoding_not_supported",
+}
 
 
 @router.get("/documents", response_model=DocumentListResponse)
@@ -30,7 +39,7 @@ async def upload_document(kb_id: int = Form(...), file: UploadFile = File(...)) 
         )
     except ValueError as exc:
         code = str(exc)
-        if code in {"document_too_large", "document_format_not_supported", "document_mime_not_supported", "document_encoding_not_supported"}:
+        if code in UPLOAD_422_ERRORS or (code.startswith("document_") and code != "document_empty"):
             raise HTTPException(status_code=422, detail=code) from exc
         if code == "document_empty":
             raise HTTPException(status_code=400, detail=code) from exc
@@ -45,10 +54,55 @@ async def upload_document(kb_id: int = Form(...), file: UploadFile = File(...)) 
         storage_path=str(upload_meta["storage_path"]),
     )
 
-    task = task_service.create_ingest_task(
+    task = await run_in_threadpool(
+        task_service.create_ingest_task,
         kb_id=kb_id,
         document_id=doc["id"],
         file_ext=str(upload_meta["file_ext"]),
-        content=content,
+        content=bytes(upload_meta["ingest_content"]),
     )
     return MessageResponse(message=f"uploaded document_id={doc['id']} task_id={task['id']}")
+
+
+@router.get("/documents/{document_id}/content", response_model=DocumentContentResponse)
+async def read_document_content(document_id: int) -> DocumentContentResponse:
+    payload = await run_in_threadpool(document_service.read_document_content, document_id)
+    if not payload:
+        raise HTTPException(status_code=404, detail="document_not_found")
+    return DocumentContentResponse(
+        document=DocumentItem(**payload["document"]),
+        content=str(payload.get("content") or ""),
+        editable=bool(payload.get("editable", True)),
+    )
+
+
+@router.put("/documents/{document_id}/content", response_model=MessageResponse)
+async def update_document_content(document_id: int, payload: DocumentContentUpdateRequest) -> MessageResponse:
+    try:
+        doc = await run_in_threadpool(document_service.update_document_content, document_id, payload.content)
+    except ValueError as exc:
+        code = str(exc)
+        status = 422 if code in {"document_too_large", "document_content_required"} else 400
+        raise HTTPException(status_code=status, detail=code) from exc
+    if not doc:
+        raise HTTPException(status_code=404, detail="document_not_found")
+    if payload.reindex:
+        await run_in_threadpool(
+            task_service.create_ingest_task,
+            kb_id=int(doc["kb_id"]),
+            document_id=int(doc["id"]),
+            file_ext=str(doc["file_ext"] or "md"),
+            content=str(payload.content or "").encode("utf-8"),
+        )
+        await run_in_threadpool(knowledge_cache_service.rebuild_chunks)
+        return MessageResponse(message=f"updated and reindexed document_id={document_id}")
+    return MessageResponse(message=f"updated document_id={document_id}")
+
+
+@router.delete("/documents/{document_id}", response_model=MessageResponse)
+async def delete_document(document_id: int) -> MessageResponse:
+    deleted = await run_in_threadpool(document_service.delete_document, document_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="document_not_found")
+    await run_in_threadpool(knowledge_cache_service.rebuild_chunks)
+    return MessageResponse(message=f"deleted document_id={document_id}")

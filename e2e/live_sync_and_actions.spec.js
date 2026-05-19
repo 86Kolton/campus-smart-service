@@ -3,6 +3,18 @@ const { test, expect, request } = require("@playwright/test");
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:5173/index.html";
 const API_BASE = process.env.PLAYWRIGHT_API_BASE || "http://127.0.0.1:8000";
 
+async function ensureBoundWebSession(page, label) {
+  await page.waitForFunction(() => window.CampusClientAuth && window.CampusClientAuth.loginWithWechatCode);
+  const ok = await page.evaluate(
+    async ({ code, name }) => window.CampusClientAuth.loginWithWechatCode(code, name),
+    { code: `pw-${label}-${Date.now()}`, name: "Playwright同学" }
+  );
+  expect(ok).toBeTruthy();
+  const session = await page.evaluate(() => window.CampusClientAuth.getSessionSync());
+  expect(session.wechatBound).toBeTruthy();
+  await page.reload({ waitUntil: "domcontentloaded" });
+}
+
 test("comment action uses filled style without outline border", async ({ page }) => {
   await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
   const style = await page.locator('#feedList button[data-action="comment"]').first().evaluate((node) => {
@@ -31,6 +43,7 @@ test("unbound web user sees WeChat binding guide before posting", async ({ page 
 
 test("profile view refreshes after same-account remote update", async ({ page }) => {
   await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+  await ensureBoundWebSession(page, "profile-sync");
   await page.click('button.tab[data-target="profile"]');
   await expect(page.locator("#profilePublicName")).toBeVisible();
 

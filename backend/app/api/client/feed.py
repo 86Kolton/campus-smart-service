@@ -285,11 +285,11 @@ async def home_hot_topics(_identity: ClientIdentity = Depends(require_client_ide
 
 
 @router.get("/profile/my-posts", response_model=FeedListResponse)
-async def profile_my_posts(identity: ClientIdentity = Depends(require_client_identity)) -> FeedListResponse:
+async def profile_my_posts(identity: ClientIdentity = Depends(require_wechat_bound_client)) -> FeedListResponse:
     return FeedListResponse(items=post_service.list_posts_by_author(user_id=identity.user_id))
 
 
 @router.get("/profile/liked-posts", response_model=FeedListResponse)
-async def profile_liked_posts(identity: ClientIdentity = Depends(require_client_identity)) -> FeedListResponse:
+async def profile_liked_posts(identity: ClientIdentity = Depends(require_wechat_bound_client)) -> FeedListResponse:
     return FeedListResponse(items=post_service.list_liked_posts(user_id=identity.user_id))
 

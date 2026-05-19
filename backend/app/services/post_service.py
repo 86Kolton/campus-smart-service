@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import and_, delete, func, or_, select, update
@@ -27,6 +29,43 @@ AUTHOR_LEVEL = {
     "课表救援队": "Lv.5",
     "考研作战组": "Lv.2",
 }
+
+_PUBLIC_ARTIFACT_RE = re.compile(
+    r"(验证贴\s*[ab]?|图文验证贴|验证跑腿|domain-current|local-current|smoke_[ab]_|smoke post)",
+    re.IGNORECASE,
+)
+_LOW_VALUE_PLACEHOLDERS = {
+    "1",
+    "11",
+    "111",
+    "test",
+    "tests",
+    "ceshi",
+    "\u6d4b\u8bd5",
+    "\u6d4b\u8bd5\u5e16",
+    "\u6d4b\u8bd5\u95ee\u9898",
+}
+
+
+def _compact_public_text(value: object) -> str:
+    text = unicodedata.normalize("NFKC", str(value or "")).strip().casefold()
+    return re.sub(r"[\s\W_]+", "", text, flags=re.UNICODE)
+
+
+def is_public_feed_artifact(post: Post, author_username: str = "", author_name: str = "") -> bool:
+    title = str(getattr(post, "title", "") or "").strip()
+    content = str(getattr(post, "content", "") or "").strip()
+    haystack = " ".join([title, content, str(author_username or ""), str(author_name or "")])
+    if _PUBLIC_ARTIFACT_RE.search(haystack):
+        return True
+
+    compact_title = _compact_public_text(title)
+    compact_content = _compact_public_text(content)
+    if compact_title in _LOW_VALUE_PLACEHOLDERS and compact_content in _LOW_VALUE_PLACEHOLDERS:
+        return True
+    if compact_title in _LOW_VALUE_PLACEHOLDERS and len(compact_content) <= 2:
+        return True
+    return False
 
 
 def _post_notification_content(post: Post) -> str:
@@ -95,11 +134,11 @@ class PostService:
         with SessionLocal() as db:
             rows = (
                 db.execute(
-                    select(Post)
+                    select(Post, User)
+                    .join(User, User.id == Post.author_id)
                     .where(Post.status == "published")
                     .order_by(Post.created_at.desc(), Post.id.desc())
                 )
-                .scalars()
                 .all()
             )
 
@@ -111,7 +150,9 @@ class PostService:
         recent_posts: list[Post] = []
         fallback_posts: list[Post] = []
 
-        for row in rows:
+        for row, user in rows:
+            if is_public_feed_artifact(row, author_username=user.username, author_name=user_service.get_public_name(user)):
+                continue
             created_at = _as_utc_datetime(row.created_at, now - timedelta(days=365))
 
             if created_at >= recent_cutoff:
@@ -261,11 +302,20 @@ class PostService:
                 select(Post, User)
                 .join(User, User.id == Post.author_id)
                 .where(Post.status == "published")
-                .order_by(Post.id.desc())
+                .order_by(Post.created_at.desc(), Post.id.desc())
             )
             if filter_name != "all":
                 stmt = stmt.where(Post.category == filter_name)
             rows = db.execute(stmt).all()
+            rows = [
+                row
+                for row in rows
+                if not is_public_feed_artifact(
+                    row[0],
+                    author_username=row[1].username,
+                    author_name=user_service.get_public_name(row[1]),
+                )
+            ]
 
             post_ids = [int(row[0].id) for row in rows]
             image_map: dict[int, str] = {}
@@ -350,6 +400,9 @@ class PostService:
                 return None
 
             post, user = row
+            if is_public_feed_artifact(post, author_username=user.username, author_name=user_service.get_public_name(user)):
+                return None
+
             image_url = db.execute(
                 select(PostAsset.public_url).where(PostAsset.post_id == raw_post_id).order_by(PostAsset.id.asc())
             ).scalars().first()
@@ -611,7 +664,7 @@ class PostService:
                     Post.status == "published",
                     Post.author_id == int(user_id),
                 )
-                .order_by(Post.id.desc())
+                .order_by(Post.created_at.desc(), Post.id.desc())
             )
             rows = db.execute(stmt).all()
             post_ids = [int(row[0].id) for row in rows]
@@ -659,8 +712,17 @@ class PostService:
                 select(Post, User)
                 .join(User, User.id == Post.author_id)
                 .where(Post.status == "published", Post.id.in_(liked_post_ids))
-                .order_by(Post.id.desc())
+                .order_by(Post.created_at.desc(), Post.id.desc())
             ).all()
+            rows = [
+                row
+                for row in rows
+                if not is_public_feed_artifact(
+                    row[0],
+                    author_username=row[1].username,
+                    author_name=user_service.get_public_name(row[1]),
+                )
+            ]
 
             post_ids = [int(row[0].id) for row in rows]
             image_map: dict[int, str] = {}
@@ -706,8 +768,17 @@ class PostService:
                 select(Post, User)
                 .join(User, User.id == Post.author_id)
                 .where(Post.status == "published", Post.id.in_(saved_post_ids))
-                .order_by(Post.id.desc())
+                .order_by(Post.created_at.desc(), Post.id.desc())
             ).all()
+            rows = [
+                row
+                for row in rows
+                if not is_public_feed_artifact(
+                    row[0],
+                    author_username=row[1].username,
+                    author_name=user_service.get_public_name(row[1]),
+                )
+            ]
 
             post_ids = [int(row[0].id) for row in rows]
             image_map: dict[int, str] = {}
@@ -909,6 +980,119 @@ class PostService:
                 }
                 for row in rows
             ]
+
+    def repair_missing_adoptions(self, limit: int = 500) -> dict:
+        safe_limit = max(1, min(int(limit or 500), 1000))
+        with SessionLocal() as db:
+            rows = (
+                db.execute(
+                    select(Post, User)
+                    .join(User, User.id == Post.author_id)
+                    .where(
+                        Post.status == "published",
+                        Post.adopted.is_(True),
+                        Post.id.not_in(select(PostAdoption.post_id)),
+                    )
+                    .order_by(Post.created_at.desc(), Post.id.desc())
+                    .limit(safe_limit)
+                )
+                .all()
+            )
+
+            created = 0
+            skipped_without_comment = 0
+            orphan_post_ids: list[int] = []
+            latest_repaired_at: datetime | None = None
+            next_id = int(db.scalar(select(func.max(PostAdoption.id))) or 0) + 1
+
+            for post, post_author in rows:
+                comment_row = (
+                    db.execute(
+                        select(Comment, User)
+                        .join(User, User.id == Comment.author_id)
+                        .where(
+                            Comment.post_id == int(post.id),
+                            Comment.status == "visible",
+                        )
+                        .order_by(Comment.likes_count.desc(), Comment.id.asc())
+                        .limit(1)
+                    )
+                    .first()
+                )
+                if not comment_row:
+                    comment_row = (
+                        db.execute(
+                            select(Comment, User)
+                            .join(User, User.id == Comment.author_id)
+                            .where(Comment.post_id == int(post.id))
+                            .order_by(Comment.likes_count.desc(), Comment.id.asc())
+                            .limit(1)
+                        )
+                        .first()
+                    )
+                if not comment_row:
+                    skipped_without_comment += 1
+                    orphan_post_ids.append(int(post.id))
+                    continue
+
+                comment, adopted_user = comment_row
+                adopted_at = _as_utc_datetime(
+                    comment.created_at,
+                    _as_utc_datetime(post.created_at, datetime.now(tz=timezone.utc)),
+                )
+                db.add(
+                    PostAdoption(
+                        id=next_id,
+                        post_id=int(post.id),
+                        post_title=str(post.title or ""),
+                        post_author_id=int(post.author_id),
+                        post_author_name=user_service.get_public_name(post_author),
+                        adopted_comment_id=int(comment.id),
+                        adopted_user_id=int(comment.author_id),
+                        adopted_user_name=user_service.get_public_name(adopted_user),
+                        adopted_comment_text=str(comment.content or ""),
+                        adopted_at=adopted_at,
+                        created_at=adopted_at,
+                    )
+                )
+                next_id += 1
+                created += 1
+                if latest_repaired_at is None or adopted_at > latest_repaired_at:
+                    latest_repaired_at = adopted_at
+
+            cleared_orphan_adopted_flags = 0
+            if orphan_post_ids:
+                result = db.execute(
+                    update(Post)
+                    .where(Post.id.in_(orphan_post_ids), Post.adopted.is_(True))
+                    .values(adopted=False)
+                )
+                cleared_orphan_adopted_flags = int(result.rowcount or 0)
+
+            if created or cleared_orphan_adopted_flags:
+                db.commit()
+
+            remaining_missing = int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(Post)
+                    .where(
+                        Post.status == "published",
+                        Post.adopted.is_(True),
+                        Post.id.not_in(select(PostAdoption.post_id)),
+                    )
+                )
+                or 0
+            )
+
+            return {
+                "checked_posts": len(rows),
+                "created_adoptions": created,
+                "skipped_without_comment": skipped_without_comment,
+                "cleared_orphan_adopted_flags": cleared_orphan_adopted_flags,
+                "remaining_missing": remaining_missing,
+                "latest_repaired_at": latest_repaired_at.isoformat() if latest_repaired_at else "",
+            }
 
 
 post_service = PostService()

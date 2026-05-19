@@ -18,6 +18,15 @@
   border-radius: 24rpx;
   background: linear-gradient(145deg, #fbfdff, #f3f8ff);
   padding: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+}
+
+.group-card-main {
+  min-width: 0;
+  flex: 1;
 }
 
 .group-card-title {
@@ -30,6 +39,24 @@
   margin-top: 8rpx;
   font-size: 22rpx;
   color: #6e849c;
+}
+
+.group-join-btn {
+  flex: 0 0 auto;
+  min-width: 150rpx;
+  height: 64rpx;
+  line-height: 64rpx;
+  padding: 0 22rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid #d3e0ee;
+  background: linear-gradient(135deg, #eef5ff, #f8fbff);
+  color: #244f83;
+  font-size: 24rpx;
+  font-weight: 700;
+}
+
+.group-join-btn::after {
+  border: 0;
 }
 
 .topic-entry {

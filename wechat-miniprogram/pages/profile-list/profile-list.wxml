@@ -32,10 +32,14 @@
         <view class="profile-post-arrow"></view>
       </view>
       <view class="profile-post-content">{{item.content}}</view>
+      <image wx:if="{{item.imageUrl}}" class="profile-post-image" src="{{item.imageUrl}}" mode="widthFix" data-url="{{item.imageUrl}}" catchtap="previewImage" />
       <view wx:if="{{item.locationText}}" class="profile-post-location">{{item.locationText}}</view>
       <view class="profile-post-footer">
         <view class="profile-post-meta">{{item.metaLine}}</view>
-        <view class="profile-post-action">{{item.actionText}}</view>
+        <view class="profile-post-actions">
+          <button wx:if="{{item.source_type === 'feed' && item.can_delete}}" class="profile-post-delete" size="mini" data-id="{{item.id}}" catchtap="deletePost" loading="{{deletingId === item.id}}" disabled="{{deletingId === item.id}}">删除</button>
+          <view class="profile-post-action">{{item.actionText}}</view>
+        </view>
       </view>
       <view wx:if="{{item.tags && item.tags.length}}" class="profile-post-tags">
         <text wx:for="{{item.tags}}" wx:key="*this" class="profile-post-tag">{{item}}</text>

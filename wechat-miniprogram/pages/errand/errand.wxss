@@ -429,6 +429,11 @@
   color: #256d54;
 }
 
+.tag-chip-role {
+  background: #f0f4fb;
+  color: #284f7a;
+}
+
 .status-chip-blue {
   background: #eaf2ff;
   color: #1d4f86;
@@ -467,7 +472,7 @@
 
 .errand-card-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220rpx, 1fr));
   gap: 10rpx;
 }
 

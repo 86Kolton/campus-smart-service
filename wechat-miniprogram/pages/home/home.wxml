@@ -74,6 +74,7 @@
 
       <view class="post-title">{{item.title}}</view>
       <view class="post-content">{{item.content}}</view>
+      <image wx:if="{{item.imageUrl}}" class="post-image" src="{{item.imageUrl}}" mode="widthFix" data-url="{{item.imageUrl}}" catchtap="previewFeedImage" />
 
       <view wx:if="{{item.commentsPreview.length}}" class="post-thread-preview">
         <view wx:for="{{item.commentsPreview}}" wx:key="*this" wx:for-item="preview" class="preview-line">{{preview}}</view>

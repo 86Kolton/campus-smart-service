@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Query
+from starlette.concurrency import run_in_threadpool
 
 from app.schemas.admin import EvolutionSyncResponse
 from app.services.evolution_service import evolution_service
@@ -14,7 +15,8 @@ async def sync_high_quality_posts(
     limit: int = Query(default=20, ge=1, le=200),
     include_reviewed: bool = Query(default=False),
 ) -> EvolutionSyncResponse:
-    result = evolution_service.sync_high_quality_posts(
+    result = await run_in_threadpool(
+        evolution_service.sync_high_quality_posts,
         kb_id=kb_id,
         min_likes=min_likes,
         min_comments=min_comments,
@@ -24,6 +26,20 @@ async def sync_high_quality_posts(
     return EvolutionSyncResponse(**result)
 
 
+@router.get("/rag/evolution/overview")
+async def get_evolution_overview(
+    kb_id: int = Query(default=1),
+    min_likes: int = Query(default=30, ge=0),
+    min_comments: int = Query(default=5, ge=0),
+) -> dict:
+    return await run_in_threadpool(
+        evolution_service.get_overview,
+        kb_id=kb_id,
+        min_likes=min_likes,
+        min_comments=min_comments,
+    )
+
+
 @router.get("/rag/evolution/reviews")
 async def list_evolution_reviews(limit: int = Query(default=50, ge=1, le=200)) -> dict:
-    return {"items": evolution_service.list_reviews(limit=limit)}
+    return {"items": await run_in_threadpool(evolution_service.list_reviews, limit=limit)}

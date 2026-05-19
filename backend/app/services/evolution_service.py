@@ -4,10 +4,11 @@ from difflib import SequenceMatcher
 import hashlib
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 
 from app.core.database import SessionLocal
 from app.models.comment import Comment
@@ -525,22 +526,28 @@ class EvolutionService:
 
     def _write_review(self, kb_id: int, post: Post, review: dict, document_id: int | None) -> None:
         with SessionLocal() as db:
-            next_id = int(db.scalar(select(func.max(EvolutionReview.id))) or 0) + 1
-            db.add(
-                EvolutionReview(
-                    id=next_id,
-                    kb_id=int(kb_id),
-                    post_id=int(post.id),
-                    post_title=str(post.title or ""),
-                    decision=str(review.get("decision") or "reject"),
-                    overall_score=int(review.get("overall_score") or 0),
-                    reviewer_model=str(review.get("reviewer_model") or ""),
-                    reason=str(review.get("reason") or ""),
-                    detail_json=json.dumps(review.get("raw") or {}, ensure_ascii=False),
-                    document_id=document_id,
+            for _attempt in range(5):
+                next_id = int(db.scalar(select(func.max(EvolutionReview.id))) or 0) + 1
+                db.add(
+                    EvolutionReview(
+                        id=next_id,
+                        kb_id=int(kb_id),
+                        post_id=int(post.id),
+                        post_title=str(post.title or ""),
+                        decision=str(review.get("decision") or "reject"),
+                        overall_score=int(review.get("overall_score") or 0),
+                        reviewer_model=str(review.get("reviewer_model") or ""),
+                        reason=str(review.get("reason") or ""),
+                        detail_json=json.dumps(review.get("raw") or {}, ensure_ascii=False),
+                        document_id=document_id,
+                    )
                 )
-            )
-            db.commit()
+                try:
+                    db.commit()
+                    return
+                except IntegrityError:
+                    db.rollback()
+            raise RuntimeError("evolution_review_id_conflict")
 
     def sync_high_quality_posts(
         self,
@@ -666,6 +673,126 @@ class EvolutionService:
             "pending_posts": pending_total,
             "remaining_posts": max(0, pending_total - len(candidates)),
             "reviewed_posts_skipped": reviewed_skipped,
+        }
+
+    def get_overview(self, kb_id: int = 1, min_likes: int = 30, min_comments: int = 5) -> dict:
+        now = _utcnow()
+        recent_cutoff = now - timedelta(days=1)
+        with SessionLocal() as db:
+            eligible_filter = or_(
+                Post.adopted.is_(True),
+                Post.likes_count >= int(min_likes),
+                Post.comments_count >= int(min_comments),
+            )
+            reviewed_ids = select(EvolutionReview.post_id).where(EvolutionReview.kb_id == int(kb_id))
+            total_reviews = int(
+                db.scalar(select(func.count()).select_from(EvolutionReview).where(EvolutionReview.kb_id == int(kb_id)))
+                or 0
+            )
+            passed_reviews = int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(EvolutionReview)
+                    .where(EvolutionReview.kb_id == int(kb_id), EvolutionReview.decision == "pass")
+                )
+                or 0
+            )
+            rejected_reviews = int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(EvolutionReview)
+                    .where(EvolutionReview.kb_id == int(kb_id), EvolutionReview.decision == "reject")
+                )
+                or 0
+            )
+            latest_review = (
+                db.execute(
+                    select(EvolutionReview)
+                    .where(EvolutionReview.kb_id == int(kb_id))
+                    .order_by(EvolutionReview.id.desc())
+                    .limit(1)
+                )
+                .scalars()
+                .first()
+            )
+            total_adoptions = int(db.scalar(select(func.count()).select_from(PostAdoption)) or 0)
+            latest_adoption = (
+                db.execute(select(PostAdoption).order_by(PostAdoption.adopted_at.desc(), PostAdoption.id.desc()).limit(1))
+                .scalars()
+                .first()
+            )
+            adopted_posts = int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(Post)
+                    .where(Post.status == "published", Post.adopted.is_(True))
+                )
+                or 0
+            )
+            missing_adoptions = int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(Post)
+                    .where(
+                        Post.status == "published",
+                        Post.adopted.is_(True),
+                        Post.id.not_in(select(PostAdoption.post_id)),
+                    )
+                )
+                or 0
+            )
+            eligible_posts = int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(Post)
+                    .where(Post.status == "published", eligible_filter)
+                )
+                or 0
+            )
+            pending_posts = int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(Post)
+                    .where(Post.status == "published", eligible_filter, Post.id.not_in(reviewed_ids))
+                )
+                or 0
+            )
+            recent_posts_24h = int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(Post)
+                    .where(Post.status == "published", Post.created_at >= recent_cutoff)
+                )
+                or 0
+            )
+
+        return {
+            "kb_id": int(kb_id),
+            "min_likes": int(min_likes),
+            "min_comments": int(min_comments),
+            "total_reviews": total_reviews,
+            "passed_reviews": passed_reviews,
+            "rejected_reviews": rejected_reviews,
+            "latest_review": {
+                "post_id": f"p-{int(latest_review.post_id)}" if latest_review else "",
+                "post_title": str(latest_review.post_title or "") if latest_review else "",
+                "decision": str(latest_review.decision or "") if latest_review else "",
+                "overall_score": int(latest_review.overall_score or 0) if latest_review else 0,
+                "created_at": _safe_iso(latest_review.created_at) if latest_review else "",
+            },
+            "total_adoptions": total_adoptions,
+            "adopted_posts": adopted_posts,
+            "missing_adoption_records": missing_adoptions,
+            "latest_adoption": {
+                "post_id": f"p-{int(latest_adoption.post_id)}" if latest_adoption else "",
+                "post_title": str(latest_adoption.post_title or "") if latest_adoption else "",
+                "adopted_at": _safe_iso(latest_adoption.adopted_at) if latest_adoption else "",
+            },
+            "eligible_posts": eligible_posts,
+            "pending_posts": pending_posts,
+            "reviewed_posts_skipped": max(0, eligible_posts - pending_posts),
+            "recent_posts_24h": recent_posts_24h,
+            "generated_at": _safe_iso(now),
         }
 
     def list_reviews(self, limit: int = 50) -> list[dict]:

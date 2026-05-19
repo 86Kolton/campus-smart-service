@@ -46,6 +46,8 @@ const profileInteropHint = document.getElementById('profileInteropHint');
 const profilePostCount = document.getElementById('profilePostCount');
 const profileLikeCount = document.getElementById('profileLikeCount');
 const wechatBindRow = document.querySelector('.menu-row[data-menu-action="wechatBind"]');
+const profileHero = document.querySelector('.profile-hero');
+const profilePublicAction = document.querySelector('.profile-public-action[data-menu-action]');
 
 const detailSheet = document.getElementById('inboxDetailSheet');
 const detailSheetMask = document.getElementById('detailSheetMask');
@@ -93,8 +95,14 @@ const errandDoneCount = document.getElementById('errandDoneCount');
 const crossGroupSheet = document.getElementById('crossGroupSheet');
 const crossGroupMask = document.getElementById('crossGroupMask');
 const backCrossGroupBtn = document.getElementById('backCrossGroupBtn');
+const crossGroupScroll = document.getElementById('crossGroupScroll');
+const crossGroupDetail = document.getElementById('crossGroupDetail');
 const crossGroupList = document.getElementById('crossGroupList');
 const crossTopicList = document.getElementById('crossTopicList');
+const crossPostCreateBtn = document.getElementById('crossPostCreateBtn');
+const crossPostTitle = document.getElementById('crossPostTitle');
+const crossPostCount = document.getElementById('crossPostCount');
+const crossPostList = document.getElementById('crossPostList');
 const postDetailSheet = document.getElementById('postDetailSheet');
 const postDetailMask = document.getElementById('postDetailMask');
 const backPostDetailBtn = document.getElementById('backPostDetailBtn');
@@ -107,6 +115,7 @@ const postFallbackList = document.getElementById('postFallbackList');
 const postDetailImage = document.getElementById('postDetailImage');
 const postDetailPreview = document.getElementById('postDetailPreview');
 const postDetailCommentBtn = document.getElementById('postDetailCommentBtn');
+const postDetailDeleteBtn = document.getElementById('postDetailDeleteBtn');
 const commentSheet = document.getElementById('commentSheet');
 const commentSheetMask = document.getElementById('commentSheetMask');
 const backCommentSheetBtn = document.getElementById('backCommentSheetBtn');
@@ -144,10 +153,11 @@ const LIKED_STORAGE_KEY = 'campus_liked_posts_v1';
 const COMMENT_LIKED_STORAGE_KEY = 'campus_liked_comments_v1';
 const CLIENT_TOKEN_KEY = 'campus_client_token_v1';
 const CLIENT_REFRESH_KEY = 'campus_client_refresh_v1';
+const CLIENT_WEB_SESSION_EXPIRY_KEY = 'campus_web_session_expires_at_v1';
 const CLIENT_BOOTSTRAP_USERNAME_KEY = 'campus_bootstrap_username_v1';
 const CLIENT_BOOTSTRAP_PASSWORD_KEY = 'campus_bootstrap_password_v1';
 const ERRAND_STORAGE_KEY = 'campus_errand_tasks_v2';
-const APP_BUILD_VERSION = '20260517-11';
+const APP_BUILD_VERSION = '20260519-08';
 const APP_BUILD_STORAGE_KEY = 'campus_web_build_v1';
 const API_BASE_STORAGE_KEY = 'campus_api_base_url';
 const LEGACY_API_BASE_URLS = new Set([
@@ -197,6 +207,27 @@ function saveClientRefreshToken(token) {
       localStorage.setItem(CLIENT_REFRESH_KEY, String(token));
     } else {
       localStorage.removeItem(CLIENT_REFRESH_KEY);
+    }
+  } catch (error) {
+    // ignore
+  }
+}
+
+function loadWebSessionExpiresAt() {
+  try {
+    return Number(localStorage.getItem(CLIENT_WEB_SESSION_EXPIRY_KEY) || 0);
+  } catch (error) {
+    return 0;
+  }
+}
+
+function saveWebSessionExpiresAt(value) {
+  try {
+    const numericValue = Number(value || 0);
+    if (numericValue > 0) {
+      localStorage.setItem(CLIENT_WEB_SESSION_EXPIRY_KEY, String(numericValue));
+    } else {
+      localStorage.removeItem(CLIENT_WEB_SESSION_EXPIRY_KEY);
     }
   } catch (error) {
     // ignore
@@ -307,6 +338,8 @@ function normalizeErrandStatus(status) {
   }
   return 'open';
 }
+
+const ERRAND_STATUS_ORDER = { open: 0, inprogress: 1, waiting_confirm: 2, done: 3, canceled: 4 };
 
 function normalizeErrandTask(raw, index = 0) {
   const safe = raw && typeof raw === 'object' ? raw : {};
@@ -535,6 +568,7 @@ const API_CONFIG = {
     feedSave: '/api/client/feed/save',
     feedPostCreate: '/api/client/feed/post/create',
     feedPostCreateWithImage: '/api/client/feed/post/create-with-image',
+    feedPostDelete: '/api/client/feed/post/delete',
     feedComments: '/api/client/feed/comments',
     feedCommentCreate: '/api/client/feed/comment/create',
     feedCommentCreateWithImage: '/api/client/feed/comment/create-with-image',
@@ -633,6 +667,50 @@ const marketPosts = [
     updatedAt: '2026-04-03 20:35',
     hotScore: 57,
     keywords: ['校车', '班次', '末班', '周末']
+  },
+  {
+    id: 'm-7',
+    title: '课程评价共建帖',
+    snippet: '集中收集平时分、作业量、实验难度、点名频率和期末复习压力，请尽量写真实上课体验。',
+    likes: 68,
+    comments: 2,
+    meta: '自习教室 · 夜间',
+    updatedAt: '2026-05-18 20:24',
+    hotScore: 70,
+    keywords: ['课程评价', '选课参考', '平时分', '作业量', '点名', '考试']
+  },
+  {
+    id: 'm-8',
+    title: '课程评价：数据库系统 补充',
+    snippet: '想收集上过数据库系统的同学反馈，尤其是平时分、作业量、实验或展示占比。当前建议是 SQL 练习要跟课程设计一起看。',
+    likes: 45,
+    comments: 2,
+    meta: '教务 · 临时通知',
+    updatedAt: '2026-05-18 19:58',
+    hotScore: 47,
+    keywords: ['课程评价', '数据库系统', '选课参考', 'SQL', '实验']
+  },
+  {
+    id: 'm-9',
+    title: '跨校小组：软件测试复习资料互换',
+    snippet: '期末自习互助群继续整理软件测试资料，重点放在用例设计、缺陷报告和实验题。',
+    likes: 82,
+    comments: 11,
+    meta: '校园集市 · 话题组',
+    updatedAt: '2026-05-18 21:10',
+    hotScore: 93,
+    keywords: ['跨校', '互助', '组队', '软件测试', '复习资料']
+  },
+  {
+    id: 'm-10',
+    title: '跨校竞赛组队还缺前端同学',
+    snippet: '计设竞赛项目已经有算法和文案，想找一位能稳定推进页面和答辩演示的同学。',
+    likes: 64,
+    comments: 8,
+    meta: '校园集市 · 话题组',
+    updatedAt: '2026-05-18 20:46',
+    hotScore: 72,
+    keywords: ['跨校', '竞赛', '组队', '项目', '前端']
   }
 ];
 
@@ -748,6 +826,22 @@ const crossTopics = [
     query: '跨校 竞赛 组队'
   }
 ];
+
+const topicChannelConfigs = {
+  course: {
+    key: 'course',
+    title: '课程评价',
+    subtitle: '专题频道',
+    description: '聚合平时分、作业量、点名频率和考试体验，优先展示带真实课程名和具体维度的帖子。',
+    keyword: '课程评价',
+    category: 'academic',
+    tags: ['课程评价', '选课参考', '平时分', '作业量', '点名', '考试'],
+    titlePlaceholder: '例如：课程评价：数据库系统 平时分和实验占比',
+    contentPlaceholder: '建议写清楚课程名、老师或班级、作业量、点名频率、考试/实验体验，方便同学判断是否适合自己。'
+  }
+};
+
+const CROSS_DEFAULT_QUERY = '跨校 互助 组队';
 
 const hotTopicPostMap = {
   'hot-1': 'm-1',
@@ -980,7 +1074,9 @@ const defaultState = {
     displayName: '',
     publicName: '',
     wechatBound: false,
-    bindState: ''
+    bindState: '',
+    sessionType: '',
+    webSessionExpiresAt: loadWebSessionExpiresAt()
   }
 };
 
@@ -1004,6 +1100,7 @@ let activeDetailTab = 'likes';
 let isWikiResponding = false;
 let isRefreshingUnread = false;
 let unreadPollingTimer = null;
+let webSessionExpiryTimer = null;
 let apiFailureToastAt = 0;
 let lastApiIssueMessage = '';
 let unreadPollAttempt = 0;
@@ -1063,8 +1160,13 @@ let selectedPostImage = null;
 let isPublishingPost = false;
 let activeReplyTarget = null;
 let activeSubpageAction = null;
+let activeSubpageTopicKey = '';
 let currentSubpageListItems = [];
 let currentSubpageSourceType = 'feed';
+let currentSubpageEmptyText = '暂无记录';
+let currentCrossPostItems = [];
+let activeCrossQuery = CROSS_DEFAULT_QUERY;
+let activeCrossLabel = '今日热议';
 let clientAuthBootstrapPromise = null;
 const wikiDetailRegistry = new Map();
 let activeWikiDetailId = '';
@@ -1165,7 +1267,9 @@ function loadState() {
           displayName: String(parsed.clientAuth.displayName || ''),
           publicName: String(parsed.clientAuth.publicName || ''),
           wechatBound: Boolean(parsed.clientAuth.wechatBound || parsed.clientAuth.wechat_bound),
-          bindState: String(parsed.clientAuth.bindState || parsed.clientAuth.bind_state || '')
+          bindState: String(parsed.clientAuth.bindState || parsed.clientAuth.bind_state || ''),
+          sessionType: String(parsed.clientAuth.sessionType || parsed.clientAuth.session_type || ''),
+          webSessionExpiresAt: Number(parsed.clientAuth.webSessionExpiresAt || parsed.clientAuth.web_session_expires_at || loadWebSessionExpiresAt() || 0)
         }
       : { ...defaultState.clientAuth };
     return {
@@ -1363,6 +1467,11 @@ function updateClientAuthFromPayload(payload = {}, fallback = {}) {
   const source = payload && typeof payload === 'object' ? payload : {};
   const base = fallback && typeof fallback === 'object' ? fallback : {};
   const wechatBound = Boolean(getPayloadValue(source, 'wechat_bound', 'wechatBound', base.wechatBound || false));
+  const sessionType = String(getPayloadValue(source, 'session_type', 'sessionType', base.sessionType || '') || '').trim();
+  const expiresIn = Number(getPayloadValue(source, 'expires_in', 'expiresIn', 0) || 0);
+  const webSessionExpiresAt = sessionType === 'web'
+    ? (expiresIn > 0 ? Date.now() + expiresIn * 1000 : Number(base.webSessionExpiresAt || loadWebSessionExpiresAt() || 0))
+    : 0;
   const nextAuth = {
     token: String(getPayloadValue(source, 'access_token', 'token', base.token || '')),
     refreshToken: String(getPayloadValue(source, 'refresh_token', 'refreshToken', base.refreshToken || '')),
@@ -1371,14 +1480,71 @@ function updateClientAuthFromPayload(payload = {}, fallback = {}) {
     displayName: String(getPayloadValue(source, 'display_name', 'displayName', base.displayName || '')),
     publicName: String(getPayloadValue(source, 'public_name', 'publicName', base.publicName || '')),
     wechatBound,
-    bindState: String(getPayloadValue(source, 'bind_state', 'bindState', base.bindState || (wechatBound ? '已绑定微信身份' : '未绑定微信身份')))
+    bindState: String(getPayloadValue(source, 'bind_state', 'bindState', base.bindState || (wechatBound ? '已绑定微信身份' : '未绑定微信身份'))),
+    sessionType,
+    webSessionExpiresAt
   };
   appState.clientAuth = nextAuth;
+  saveWebSessionExpiresAt(webSessionExpiresAt);
+  scheduleWebSessionExpiryCheck();
   return nextAuth;
 }
 
 function hasWechatBound() {
   return Boolean(appState.clientAuth && appState.clientAuth.wechatBound);
+}
+
+function hasProtectedProfileAccess() {
+  const auth = appState.clientAuth || {};
+  return Boolean(
+    auth.token
+    && auth.wechatBound
+    && !isWebSessionExpired()
+    && !isLegacyBoundWebSession()
+  );
+}
+
+function isLegacyBoundWebSession() {
+  const auth = appState.clientAuth || {};
+  return Boolean(auth.token && auth.wechatBound && !String(auth.sessionType || '').trim());
+}
+
+function isWebSessionExpired() {
+  const auth = appState.clientAuth || {};
+  const expiresAt = Number(auth.webSessionExpiresAt || loadWebSessionExpiresAt() || 0);
+  return Boolean(auth.token && auth.sessionType === 'web' && expiresAt > 0 && Date.now() >= expiresAt);
+}
+
+function scheduleWebSessionExpiryCheck() {
+  if (webSessionExpiryTimer) {
+    clearTimeout(webSessionExpiryTimer);
+    webSessionExpiryTimer = null;
+  }
+  const auth = appState.clientAuth || {};
+  const expiresAt = Number(auth.webSessionExpiresAt || loadWebSessionExpiresAt() || 0);
+  if (!auth.token || auth.sessionType !== 'web' || expiresAt <= 0) {
+    return;
+  }
+  const delay = Math.max(0, Math.min(expiresAt - Date.now(), 2147483647));
+  webSessionExpiryTimer = setTimeout(() => {
+    void handleWebSessionExpired(true);
+  }, delay);
+}
+
+async function handleWebSessionExpired(showMessage = false) {
+  if (!appState.clientAuth || !appState.clientAuth.token) {
+    return false;
+  }
+  if (!isWebSessionExpired() && !isLegacyBoundWebSession()) {
+    scheduleWebSessionExpiryCheck();
+    return true;
+  }
+  const legacySession = isLegacyBoundWebSession();
+  await logoutClient({ remote: false });
+  if (showMessage) {
+    showToast(legacySession ? '网页登录安全策略已更新，请重新互通登录' : '网页登录已满 1 小时，请重新通过小程序互通登录');
+  }
+  return false;
 }
 
 function getWechatBindRequiredBody(contextLabel = '继续操作') {
@@ -1387,12 +1553,12 @@ function getWechatBindRequiredBody(contextLabel = '继续操作') {
     <div class="wechat-auth-panel wechat-required-panel">
       <div class="wechat-auth-hero wechat-required-hero">
         <strong>${safeContext}需要先完成微信绑定</strong>
-        <p>为了保护校园社区身份可信，网页端发帖、评论、点赞、收藏和跑腿操作都需要先通过小程序微信身份互通。你仍然可以继续浏览帖子、搜索内容和使用知识库问答。</p>
+        <p>为了保护校园社区身份可信和个人隐私数据安全，网页端发帖、评论、点赞、收藏、跑腿和教务查询都需要先通过小程序微信身份互通。你仍然可以继续浏览帖子、搜索内容和使用知识库问答。</p>
       </div>
       <div class="wechat-auth-steps">
         <div class="wechat-auth-step"><span>1</span><p>打开微信小程序，进入“我的”页。</p></div>
         <div class="wechat-auth-step"><span>2</span><p>点击“网页互通登录”，复制一次性登录码。</p></div>
-        <div class="wechat-auth-step"><span>3</span><p>回到网页端粘贴登录码，完成绑定后即可互动。</p></div>
+        <div class="wechat-auth-step"><span>3</span><p>回到网页端粘贴登录码，完成绑定后即可继续互动或查询本人教务数据。</p></div>
       </div>
       <div class="wechat-auth-benefits">
         <span class="wechat-auth-benefit">身份可信</span>
@@ -1420,6 +1586,55 @@ function openWechatRequiredSheet(contextLabel = '继续操作') {
 function requireWechatBoundAction(contextLabel = '继续操作') {
   if (hasWechatBound()) {
     return true;
+  }
+  openWechatRequiredSheet(contextLabel);
+  return false;
+}
+
+async function refreshWechatBoundForProtectedAction() {
+  if (!API_CONFIG.enabled) {
+    return hasWechatBound();
+  }
+  if (clientAuthBootstrapPromise) {
+    await clientAuthBootstrapPromise;
+  }
+  if (!appState.clientAuth || !appState.clientAuth.token) {
+    await ensureClientSession();
+  }
+  if (!appState.clientAuth || !appState.clientAuth.token) {
+    return false;
+  }
+  if (!navigator.onLine) {
+    notifyApiIssue('当前网络不可用，暂时无法确认微信绑定状态');
+    return false;
+  }
+
+  const me = await apiRequest(API_CONFIG.endpoints.clientMe, {
+    method: 'GET',
+    silent: true,
+    retries: 0
+  });
+  if (!me || typeof me !== 'object') {
+    return false;
+  }
+  updateClientAuthFromPayload(me, appState.clientAuth);
+  saveClientToken(appState.clientAuth.token);
+  saveClientRefreshToken(appState.clientAuth.refreshToken);
+  saveState();
+  syncUserScopedLikes();
+  syncHeaderGreeting();
+  return hasWechatBound();
+}
+
+async function ensureWechatBoundAction(contextLabel = '继续操作') {
+  try {
+    const bound = await refreshWechatBoundForProtectedAction();
+    if (bound) {
+      return true;
+    }
+  } catch (error) {
+    // Fall through to the same friendly guidance instead of letting stale
+    // local state enable an optimistic write.
   }
   openWechatRequiredSheet(contextLabel);
   return false;
@@ -1471,6 +1686,13 @@ async function refreshClientSession() {
   if (!API_CONFIG.enabled) {
     return null;
   }
+  if (isWebSessionExpired() || isLegacyBoundWebSession()) {
+    await handleWebSessionExpired(false);
+    return null;
+  }
+  if (appState.clientAuth && appState.clientAuth.sessionType === 'web') {
+    return null;
+  }
   const refreshToken = appState.clientAuth ? String(appState.clientAuth.refreshToken || '') : '';
   if (!refreshToken) {
     return null;
@@ -1514,8 +1736,12 @@ async function logoutClient(options = {}) {
   const remote = options.remote !== false;
   if (!API_CONFIG.enabled) {
     appState.clientAuth = { ...defaultState.clientAuth };
+    appState.clientAuth.sessionType = '';
+    appState.clientAuth.webSessionExpiresAt = 0;
     saveClientToken('');
     saveClientRefreshToken('');
+    saveWebSessionExpiresAt(0);
+    clearBootstrapCredentials();
     saveState();
     return;
   }
@@ -1533,8 +1759,16 @@ async function logoutClient(options = {}) {
     // ignore
   }
   appState.clientAuth = { ...defaultState.clientAuth };
+  appState.clientAuth.sessionType = '';
+  appState.clientAuth.webSessionExpiresAt = 0;
   saveClientToken('');
   saveClientRefreshToken('');
+  saveWebSessionExpiresAt(0);
+  clearBootstrapCredentials();
+  if (webSessionExpiryTimer) {
+    clearTimeout(webSessionExpiryTimer);
+    webSessionExpiryTimer = null;
+  }
   likedPostIds.clear();
   likedCommentIds.clear();
   saveState();
@@ -1543,6 +1777,10 @@ async function logoutClient(options = {}) {
 
 async function ensureClientSession() {
   if (!API_CONFIG.enabled) {
+    return null;
+  }
+  if (isWebSessionExpired() || isLegacyBoundWebSession()) {
+    await handleWebSessionExpired(true);
     return null;
   }
 
@@ -1697,7 +1935,7 @@ function openWechatAuthPage() {
       <div class="wechat-auth-panel">
         <div class="wechat-auth-hero">
           <strong>微信互通登录</strong>
-          <p>网页端浏览和搜索不受影响；发帖、评论、点赞、收藏和跑腿等互动操作，需要先通过小程序微信身份互通，确保账号可信、数据同步、操作可追溯。</p>
+          <p>网页端浏览和搜索不受影响；发帖、评论、点赞、收藏、跑腿和教务查询等受保护操作，需要先通过小程序微信身份互通，确保账号可信、数据同步、操作可追溯。</p>
         </div>
         <div class="wechat-auth-steps">
           <div class="wechat-auth-step"><span>1</span><p>打开微信小程序“我的”页，确认已完成微信登录。</p></div>
@@ -1837,6 +2075,13 @@ async function apiRequest(path, options = {}) {
   const useAuth = options.auth !== false;
   const allowRefresh = options.allowRefresh !== false;
 
+  if (useAuth && (isWebSessionExpired() || isLegacyBoundWebSession())) {
+    await handleWebSessionExpired(!silent);
+    if (silent) {
+      return null;
+    }
+  }
+
   if (useAuth && (!appState.clientAuth || !appState.clientAuth.token)) {
     await ensureClientSession();
   }
@@ -1968,7 +2213,7 @@ async function apiRequest(path, options = {}) {
           }
           if (detail.includes('wechat_bind_required')) {
             openWechatRequiredSheet(options.wechatContext || '继续操作');
-            notifyApiIssue('请先通过小程序完成微信绑定，再继续互动');
+            notifyApiIssue('请先通过小程序完成微信绑定，再继续受保护操作');
             return null;
           }
           setNetworkHint('local');
@@ -2019,6 +2264,22 @@ async function apiRequest(path, options = {}) {
 }
 
 const apiAdapter = {
+  isPublicFeedArtifact(item = {}) {
+    const compact = (value) => String(value || '')
+      .normalize('NFKC')
+      .trim()
+      .toLowerCase()
+      .replace(/[\s\W_]+/g, '');
+    const haystack = [item.title, item.content, item.author, item.tagText, item.knowledgeReviewReason].join(' ');
+    if (/(验证贴\s*[ab]?|图文验证贴|验证跑腿|domain-current|local-current|smoke_[ab]_|smoke post)/i.test(haystack)) {
+      return true;
+    }
+    const placeholders = new Set(['1', '11', '111', 'test', 'tests', 'ceshi', '\u6d4b\u8bd5', '\u6d4b\u8bd5\u5e16', '\u6d4b\u8bd5\u95ee\u9898']);
+    const title = compact(item.title);
+    const content = compact(item.content);
+    return placeholders.has(title) && (placeholders.has(content) || content.length <= 2);
+  },
+
   mapFeedItem(item, index = 0) {
     const id = String(item.id || `feed-${index}`);
     const liked = API_CONFIG.enabled
@@ -2047,7 +2308,8 @@ const apiAdapter = {
       knowledgeReviewDecision: String(item.knowledge_review_decision || item.knowledgeReviewDecision || '').toLowerCase(),
       knowledgeReviewReason: String(item.knowledge_review_reason || item.knowledgeReviewReason || ''),
       imageUrl: normalizeMediaUrl(item.image_url || item.imageUrl || ''),
-      commentsPreview
+      commentsPreview,
+      canDelete: Boolean(item.can_delete || item.canDelete)
     };
   },
   mapErrandItem(item, index = 0) {
@@ -2107,7 +2369,7 @@ const apiAdapter = {
     }
 
     return data.items.map((item, index) => apiAdapter.mapFeedItem(item, index))
-      .filter((item) => item.id && item.title);
+      .filter((item) => item.id && item.title && !apiAdapter.isPublicFeedArtifact(item));
   },
 
   async fetchFeedPost(postId) {
@@ -2135,7 +2397,7 @@ const apiAdapter = {
       isRecent: Boolean(item.is_recent ?? item.isRecent ?? true),
       createdAt: String(item.created_at || item.createdAt || ''),
       rank: index + 1
-    })).filter((item) => item.title);
+    })).filter((item) => item.title && !apiAdapter.isPublicFeedArtifact(item));
   },
 
   async toggleFeedLike(postId, liked) {
@@ -2256,7 +2518,7 @@ const apiAdapter = {
       likes: Number(data.likes || 0),
       parentCommentId: String(data.parent_comment_id || data.parentCommentId || ''),
       replyToAuthor: String(data.reply_to_author || data.replyToAuthor || ''),
-      canDelete: Boolean(data.can_delete || data.canDelete || true),
+      canDelete: Boolean(data.can_delete ?? data.canDelete ?? true),
       localImageFile: null,
       errorMsg: '',
       status: 'sent'
@@ -2296,6 +2558,21 @@ const apiAdapter = {
       deletedIds: Array.isArray(data.deleted_ids)
         ? data.deleted_ids.map((id) => String(id))
         : (Array.isArray(data.deletedIds) ? data.deletedIds.map((id) => String(id)) : [])
+    };
+  },
+
+  async deletePost(postId) {
+    const data = await apiRequest(API_CONFIG.endpoints.feedPostDelete, {
+      method: 'POST',
+      wechatContext: '删除帖子',
+      body: JSON.stringify({ post_id: String(postId || '') })
+    });
+    if (!data || typeof data !== 'object') {
+      return null;
+    }
+    return {
+      postId: String(data.post_id || postId || ''),
+      deleted: Boolean(data.deleted)
     };
   },
 
@@ -2355,7 +2632,8 @@ const apiAdapter = {
       imageUrl: normalizeMediaUrl(data.image_url || data.imageUrl || ''),
       commentsPreview: Array.isArray(data.comments_preview)
         ? data.comments_preview.map((line) => String(line || '')).filter((line) => line)
-        : []
+        : [],
+      canDelete: Boolean(data.can_delete ?? data.canDelete ?? true)
     };
   },
 
@@ -2442,6 +2720,7 @@ const apiAdapter = {
   async fetchEduOverview() {
     const data = await apiRequest(API_CONFIG.endpoints.eduOverview, {
       method: 'GET',
+      wechatContext: '查询教务数据',
       headers: {
         'X-Edu-Session': API_CONFIG.eduSessionToken
       }
@@ -2472,6 +2751,7 @@ const apiAdapter = {
     }
     const data = await apiRequest(`${API_CONFIG.endpoints.eduGrades}?${params.toString()}`, {
       method: 'GET',
+      wechatContext: '查询成绩',
       headers: {
         'X-Edu-Session': API_CONFIG.eduSessionToken
       }
@@ -2499,6 +2779,7 @@ const apiAdapter = {
   async fetchEduExams() {
     const data = await apiRequest(API_CONFIG.endpoints.eduExams, {
       method: 'GET',
+      wechatContext: '查询考试安排',
       headers: {
         'X-Edu-Session': API_CONFIG.eduSessionToken
       }
@@ -2520,6 +2801,7 @@ const apiAdapter = {
   async fetchEduSchedule(weekNo = 1) {
     const data = await apiRequest(`${API_CONFIG.endpoints.eduSchedule}?week_no=${Number(weekNo || 1)}`, {
       method: 'GET',
+      wechatContext: '查询课表',
       headers: {
         'X-Edu-Session': API_CONFIG.eduSessionToken
       }
@@ -2550,6 +2832,7 @@ const apiAdapter = {
     }
     const data = await apiRequest(`${API_CONFIG.endpoints.eduFreeClassrooms}?${params.toString()}`, {
       method: 'GET',
+      wechatContext: '查询空教室',
       headers: {
         'X-Edu-Session': API_CONFIG.eduSessionToken
       }
@@ -2573,7 +2856,11 @@ const apiAdapter = {
   },
 
   async fetchProfileSummary() {
-    const data = await apiRequest(API_CONFIG.endpoints.profileSummary, { method: 'GET' });
+    const data = await apiRequest(API_CONFIG.endpoints.profileSummary, {
+      method: 'GET',
+      silent: true,
+      wechatContext: '查看个人资料'
+    });
     if (!data || typeof data !== 'object') {
       return null;
     }
@@ -2589,7 +2876,11 @@ const apiAdapter = {
   },
 
   async fetchProfileSettings() {
-    const data = await apiRequest(API_CONFIG.endpoints.profileSettings, { method: 'GET', silent: true });
+    const data = await apiRequest(API_CONFIG.endpoints.profileSettings, {
+      method: 'GET',
+      silent: true,
+      wechatContext: '查看个人设置'
+    });
     if (!data || typeof data !== 'object') {
       return null;
     }
@@ -2604,6 +2895,7 @@ const apiAdapter = {
   async updatePublicName(publicName) {
     const data = await apiRequest(API_CONFIG.endpoints.profilePublicName, {
       method: 'POST',
+      wechatContext: '修改发言昵称',
       body: JSON.stringify({ public_name: String(publicName || '').trim() }),
       retries: 0
     });
@@ -2616,7 +2908,11 @@ const apiAdapter = {
   },
 
   async fetchMyPosts() {
-    const data = await apiRequest(API_CONFIG.endpoints.profileMyPosts, { method: 'GET', silent: true });
+    const data = await apiRequest(API_CONFIG.endpoints.profileMyPosts, {
+      method: 'GET',
+      silent: true,
+      wechatContext: '查看我的帖子'
+    });
     if (!data || !Array.isArray(data.items)) {
       return null;
     }
@@ -2625,7 +2921,11 @@ const apiAdapter = {
   },
 
   async fetchLikedPosts() {
-    const data = await apiRequest(API_CONFIG.endpoints.profileLikedPosts, { method: 'GET', silent: true });
+    const data = await apiRequest(API_CONFIG.endpoints.profileLikedPosts, {
+      method: 'GET',
+      silent: true,
+      wechatContext: '查看我的点赞'
+    });
     if (!data || !Array.isArray(data.items)) {
       return null;
     }
@@ -2637,7 +2937,11 @@ const apiAdapter = {
     const endpoint = scope === 'my'
       ? API_CONFIG.endpoints.errandMyList
       : API_CONFIG.endpoints.errandList;
-    const data = await apiRequest(endpoint, { method: 'GET', silent: true });
+    const data = await apiRequest(endpoint, {
+      method: 'GET',
+      silent: true,
+      wechatContext: scope === 'my' ? '查看我的跑腿' : '查看跑腿任务'
+    });
     if (!data || !Array.isArray(data.items)) {
       return null;
     }
@@ -2719,7 +3023,11 @@ const apiAdapter = {
   },
 
   async fetchUnreadCounts() {
-    const data = await apiRequest(API_CONFIG.endpoints.unreadCount, { method: 'GET' });
+    const data = await apiRequest(API_CONFIG.endpoints.unreadCount, {
+      method: 'GET',
+      silent: true,
+      wechatContext: '查看消息中心'
+    });
     if (!data || typeof data !== 'object') {
       return null;
     }
@@ -2737,7 +3045,10 @@ const apiAdapter = {
       ? API_CONFIG.endpoints.inboxSaved
       : API_CONFIG.endpoints.inboxLikes;
 
-    const data = await apiRequest(endpoint, { method: 'GET' });
+    const data = await apiRequest(endpoint, {
+      method: 'GET',
+      wechatContext: type === 'saved' ? '查看收藏列表' : '查看收到的赞'
+    });
     if (!data || !Array.isArray(data.items)) {
       return null;
     }
@@ -2754,6 +3065,7 @@ const apiAdapter = {
   async markInboxRead(type) {
     await apiRequest(API_CONFIG.endpoints.markRead, {
       method: 'POST',
+      wechatContext: '标记消息已读',
       body: JSON.stringify({ type })
     });
   },
@@ -2882,6 +3194,7 @@ function renderFeed() {
   posts.forEach((post) => {
     const badge = getPostStatusBadge(post);
     const badges = badge ? `<span class="post-badge ${badge.tone}">${escapeHtml(badge.text)}</span>` : '';
+    const canDelete = Boolean(post.canDelete);
 
     const postNode = document.createElement('article');
     postNode.className = 'card post-card is-clickable';
@@ -2922,13 +3235,14 @@ function renderFeed() {
       ${previewBlock}
       ${badges ? `<div class="post-badges">${badges}</div>` : ''}
       <p class="tags">${safeTags}</p>
-      <div class="post-actions">
+      <div class="post-actions${canDelete ? ' has-delete' : ''}">
         <button class="${post.liked ? 'is-on' : ''}" data-action="like" data-post-id="${safePostId}">
           ${post.liked ? `已点赞 ${post.likes}` : `点赞 ${post.likes}`}
         </button>
         <button class="${post.commented ? 'is-on' : ''}" data-action="comment" data-post-id="${safePostId}">
           评论 ${post.comments}
         </button>
+        ${canDelete ? `<button class="danger-action" data-action="delete" data-post-id="${safePostId}">删除</button>` : ''}
       </div>
     `;
 
@@ -3443,7 +3757,7 @@ function renderCommentList() {
         del.dataset.deleteCommentId = item.id;
         del.textContent = '删除';
         del.addEventListener('click', () => {
-          requestDeleteComment(String(item.id || ''));
+          void requestDeleteComment(String(item.id || ''));
         });
         actions.appendChild(del);
       }
@@ -3504,11 +3818,11 @@ function mergeRemoteComments(postId, remoteItems) {
   commentStore[postId] = Array.from(map.values());
 }
 
-function requestDeleteComment(commentId) {
+async function requestDeleteComment(commentId) {
   if (!commentId || !activeCommentPostId) {
     return;
   }
-  if (!requireWechatBoundAction('删除评论')) {
+  if (!await ensureWechatBoundAction('删除评论')) {
     return;
   }
   if (!confirm('确认删除这条评论？')) {
@@ -3563,6 +3877,121 @@ function requestDeleteComment(commentId) {
     }
     renderFeed();
     renderCommentList();
+  });
+}
+
+function removePostFromClientState(postId) {
+  const safePostId = String(postId || '').trim();
+  if (!safePostId) {
+    return;
+  }
+
+  const feedIndex = feedPosts.findIndex((item) => String(item && item.id || '') === safePostId);
+  if (feedIndex >= 0) {
+    feedPosts.splice(feedIndex, 1);
+  }
+
+  delete commentStore[safePostId];
+  likedPostIds.delete(safePostId);
+  saveLikedSet(likedPostIds, appState.clientAuth && appState.clientAuth.userId);
+
+  Object.keys(inboxDetails).forEach((key) => {
+    if (!Array.isArray(inboxDetails[key])) {
+      return;
+    }
+    inboxDetails[key] = inboxDetails[key].filter((item) => String(item && item.postId || '') !== safePostId);
+  });
+
+  if (Array.isArray(currentSubpageListItems) && currentSubpageListItems.length) {
+    currentSubpageListItems = currentSubpageListItems.filter((item) => {
+      if (!item || item.source_type === 'errand') {
+        return true;
+      }
+      return String(item.id || '') !== safePostId;
+    });
+  }
+
+  if (profilePostCount) {
+    const nextCount = Math.max(0, Number(profilePostCount.textContent || 0) - 1);
+    if (Number.isFinite(nextCount)) {
+      profilePostCount.textContent = String(nextCount);
+    }
+  }
+}
+
+function rerenderAfterPostDelete() {
+  renderFeed();
+  renderProfileInbox();
+  updateProfileDot();
+  if (subpageSheet && !subpageSheet.hidden && Array.isArray(currentSubpageListItems)) {
+    renderSubpageList(currentSubpageListItems, currentSubpageSourceType, currentSubpageEmptyText);
+  }
+}
+
+async function requestDeletePost(postId, options = {}) {
+  const safePostId = String(postId || '').trim();
+  if (!safePostId) {
+    return;
+  }
+  if (!await ensureWechatBoundAction('删除帖子')) {
+    return;
+  }
+  if (!confirm('确认删除这条帖子？删除后评论、点赞、收藏和消息提醒会同步清理。')) {
+    return;
+  }
+
+  const feedSnapshot = feedPosts.slice();
+  const commentSnapshot = commentStore[safePostId] ? commentStore[safePostId].slice() : null;
+  const likedSnapshot = new Set(likedPostIds);
+  const inboxSnapshot = {
+    likes: Array.isArray(inboxDetails.likes) ? inboxDetails.likes.slice() : [],
+    saved: Array.isArray(inboxDetails.saved) ? inboxDetails.saved.slice() : []
+  };
+  const subpageSnapshot = Array.isArray(currentSubpageListItems) ? currentSubpageListItems.slice() : [];
+  const previousPostCount = profilePostCount ? profilePostCount.textContent : '';
+
+  removePostFromClientState(safePostId);
+  rerenderAfterPostDelete();
+  if (options.closeDetail) {
+    closePostDetailSheet();
+  }
+
+  void apiAdapter.deletePost(safePostId).then((resp) => {
+    if (!resp || !resp.deleted) {
+      feedPosts.splice(0, feedPosts.length, ...feedSnapshot);
+      if (commentSnapshot) {
+        commentStore[safePostId] = commentSnapshot;
+      }
+      likedPostIds.clear();
+      likedSnapshot.forEach((id) => likedPostIds.add(String(id)));
+      inboxDetails.likes = inboxSnapshot.likes;
+      inboxDetails.saved = inboxSnapshot.saved;
+      currentSubpageListItems = subpageSnapshot;
+      if (profilePostCount) {
+        profilePostCount.textContent = previousPostCount;
+      }
+      rerenderAfterPostDelete();
+      showToast('删除失败，请稍后再试');
+      return;
+    }
+
+    showToast('帖子已删除');
+    void refreshVisibleClientState({ force: true });
+  }).catch(() => {
+    feedPosts.splice(0, feedPosts.length, ...feedSnapshot);
+    if (commentSnapshot) {
+      commentStore[safePostId] = commentSnapshot;
+    }
+    likedPostIds.clear();
+    likedSnapshot.forEach((id) => likedPostIds.add(String(id)));
+    inboxDetails.likes = inboxSnapshot.likes;
+    inboxDetails.saved = inboxSnapshot.saved;
+    currentSubpageListItems = subpageSnapshot;
+    if (profilePostCount) {
+      profilePostCount.textContent = previousPostCount;
+    }
+    rerenderAfterPostDelete();
+    showToast('删除失败，请稍后再试');
   });
 }
 
@@ -3667,7 +4096,7 @@ async function submitComment() {
     setCommentComposerState();
     return;
   }
-  if (!requireWechatBoundAction(replyTarget ? '回复评论' : '发表评论')) {
+  if (!await ensureWechatBoundAction(replyTarget ? '回复评论' : '发表评论')) {
     return;
   }
 
@@ -3735,7 +4164,7 @@ async function retryComment(commentId) {
   if (!target || target.status !== 'failed') {
     return;
   }
-  if (!requireWechatBoundAction('重试发送评论')) {
+  if (!await ensureWechatBoundAction('重试发送评论')) {
     return;
   }
 
@@ -3798,18 +4227,57 @@ function closePostComposer() {
   }
 }
 
-function openPostComposer() {
-  if (!postComposerSheet || !postComposerMask) {
+function applyPostComposerPrefill(options = {}) {
+  if (!options || typeof options !== 'object') {
     return;
   }
-  if (!requireWechatBoundAction('发布帖子')) {
-    return;
+  if (postCategoryInput && options.category) {
+    postCategoryInput.value = String(options.category || 'study');
+  }
+  if (postTitleInput) {
+    if (Object.prototype.hasOwnProperty.call(options, 'title')) {
+      postTitleInput.value = String(options.title || '');
+    }
+    if (options.titlePlaceholder) {
+      postTitleInput.placeholder = String(options.titlePlaceholder);
+    } else {
+      postTitleInput.placeholder = '帖子标题（必填）';
+    }
+  }
+  if (postContentInput) {
+    if (Object.prototype.hasOwnProperty.call(options, 'content')) {
+      postContentInput.value = String(options.content || '');
+    }
+    if (options.contentPlaceholder) {
+      postContentInput.placeholder = String(options.contentPlaceholder);
+    } else {
+      postContentInput.placeholder = '帖子内容（必填）';
+    }
+  }
+  if (postTagsInput && Object.prototype.hasOwnProperty.call(options, 'tags')) {
+    const tags = Array.isArray(options.tags) ? options.tags : String(options.tags || '').split(',');
+    postTagsInput.value = tags.map((item) => String(item || '').trim()).filter((item) => item).join(', ');
+  }
+}
+
+async function openPostComposer(options = {}) {
+  if (!postComposerSheet || !postComposerMask) {
+    return false;
+  }
+  if (!await ensureWechatBoundAction('发布帖子')) {
+    return false;
   }
   closeCommentSheet();
   closeInboxDetailSheet();
   closePostDetailSheet();
+  closeSearchResultSheet();
+  closeErrandPage();
+  closeCrossGroupPage();
+  closeEduSheet();
+  applyPostComposerPrefill(options);
   postComposerSheet.hidden = false;
   postComposerMask.hidden = false;
+  return true;
 }
 
 async function submitPostComposer() {
@@ -3830,7 +4298,7 @@ async function submitPostComposer() {
     showToast('请填写标题和内容');
     return;
   }
-  if (!requireWechatBoundAction('发布帖子')) {
+  if (!await ensureWechatBoundAction('发布帖子')) {
     return;
   }
 
@@ -3874,7 +4342,7 @@ async function handleFeedAction(action, id) {
   }
 
   if (action === 'like') {
-    if (!requireWechatBoundAction('点赞帖子')) {
+    if (!await ensureWechatBoundAction('点赞帖子')) {
       return;
     }
     const wasLiked = post.liked || likedPostIds.has(String(id));
@@ -3920,6 +4388,11 @@ async function handleFeedAction(action, id) {
 
   if (action === 'comment') {
     openCommentSheet(id);
+    return;
+  }
+
+  if (action === 'delete') {
+    void requestDeletePost(id);
   }
 }
 
@@ -3941,6 +4414,50 @@ function sortMarketResults(list, sortBy) {
   }
 
   return [...list].sort((a, b) => (b.hotScore || 0) - (a.hotScore || 0));
+}
+
+function getTopicLocalResults(config = {}, limit = 10) {
+  const keywords = [
+    config.keyword,
+    ...(Array.isArray(config.tags) ? config.tags : [])
+  ].map((item) => String(item || '').trim()).filter((item) => item);
+  const merged = new Map();
+  keywords.forEach((keyword) => {
+    searchMarketPosts(keyword).forEach((item) => merged.set(String(item.id), item));
+  });
+  return sortMarketResults(Array.from(merged.values()), 'hot').slice(0, limit);
+}
+
+async function openTopicChannelPage(topicKey = 'course') {
+  const config = topicChannelConfigs[topicKey] || topicChannelConfigs.course;
+  const fallbackItems = getTopicLocalResults(config, 10);
+  openSubpageListPage({
+    title: config.title,
+    subtitle: config.subtitle,
+    description: config.description,
+    items: fallbackItems,
+    sourceType: 'search',
+    emptyText: `${config.title}暂无相关内容，先发布一条真实体验吧`,
+    actionLabel: '发布相关帖子',
+    topicKey: config.key,
+    action: () => openPostComposer({
+      category: config.category,
+      tags: config.tags,
+      titlePlaceholder: config.titlePlaceholder,
+      contentPlaceholder: config.contentPlaceholder
+    })
+  });
+
+  const remoteResult = await apiAdapter.searchPosts(config.keyword, 'hot', { page: 1, pageSize: 10 });
+  if (!remoteResult || !Array.isArray(remoteResult.items) || activeSubpageTopicKey !== config.key) {
+    return;
+  }
+  const remoteItems = remoteResult.items.length ? remoteResult.items : fallbackItems;
+  renderSubpageList(
+    remoteItems,
+    'search',
+    `${config.title}暂无相关内容，先发布一条真实体验吧`
+  );
 }
 
 function renderMarketResults(list, options = {}) {
@@ -4347,7 +4864,7 @@ function openWechatAuthPage() {
       <div class="wechat-auth-panel">
         <div class="wechat-auth-hero">
           <strong>微信互通登录</strong>
-          <p>网页端浏览和搜索不受影响；发帖、评论、点赞、收藏和跑腿等互动操作，需要先通过小程序微信身份互通，确保账号可信、数据同步、操作可追溯。</p>
+          <p>网页端浏览和搜索不受影响；发帖、评论、点赞、收藏、跑腿和教务查询等受保护操作，需要先通过小程序微信身份互通，确保账号可信、数据同步、操作可追溯。</p>
         </div>
         <div class="wechat-auth-steps">
           <div class="wechat-auth-step"><span>1</span><p>打开微信小程序“我的”页，确认已完成微信登录。</p></div>
@@ -4387,6 +4904,9 @@ function openWechatAuthPage() {
 }
 
 async function openMyPostsPage() {
+  if (!await ensureWechatBoundAction('查看我的帖子')) {
+    return;
+  }
   const remote = await apiAdapter.fetchMyPosts();
   const local = feedPosts.filter((post) => String(post.author || '').includes('@我'));
   const items = Array.isArray(remote) && remote.length ? remote : local;
@@ -4401,6 +4921,9 @@ async function openMyPostsPage() {
 }
 
 async function openLikedPostsPage() {
+  if (!await ensureWechatBoundAction('查看我的点赞')) {
+    return;
+  }
   const remote = await apiAdapter.fetchLikedPosts();
   const local = feedPosts.filter((post) => Boolean(post.liked) || likedPostIds.has(String(post.id)));
   const items = Array.isArray(remote) && remote.length ? remote : local;
@@ -5443,6 +5966,9 @@ async function openEduSheet(action = 'hall') {
   if (!eduSheet || !eduSheetMask || !eduSheetBody) {
     return;
   }
+  if (!await ensureWechatBoundAction('查询教务数据')) {
+    return;
+  }
 
   activeEduAction = EDU_ACTION_CONFIG[action] ? action : 'hall';
   closeInboxDetailSheet();
@@ -5577,13 +6103,80 @@ function buildHeaderGreeting(rawName = '') {
   return `你好，${surname}同学`;
 }
 
+function buildProfileAvatarText(rawName = '') {
+  const cleaned = String(rawName || '').trim().replace(/^@+/, '');
+  if (!cleaned) {
+    return '未';
+  }
+  const cjk = cleaned.replace(/[^\u3400-\u9fff]/g, '');
+  if (cjk) {
+    return cjk.slice(0, 2);
+  }
+  return cleaned
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase())
+    .slice(0, 2)
+    .join('') || '未';
+}
+
 function syncHeaderGreeting(preferredName = '') {
   if (!headerGreeting) {
     return;
   }
   const auth = appState && appState.clientAuth ? appState.clientAuth : {};
-  const fallback = String(auth.displayName || auth.username || '').trim();
+  const fallback = hasProtectedProfileAccess()
+    ? String(auth.displayName || auth.publicName || auth.username || '').trim()
+    : '';
   headerGreeting.textContent = buildHeaderGreeting(preferredName || fallback);
+}
+
+function renderProtectedProfileGate() {
+  if (profileHero) {
+    profileHero.classList.add('is-locked');
+  }
+  const avatar = profileHero ? profileHero.querySelector('.profile-avatar') : null;
+  if (avatar) {
+    avatar.textContent = '未';
+  }
+  if (profileName) {
+    profileName.textContent = '请先完成微信互通';
+  }
+  if (profileMeta) {
+    profileMeta.textContent = '未互通前，网页端不会展示个人资料、消息和教务信息';
+  }
+  if (profileBindState) {
+    profileBindState.textContent = '未完成微信互通';
+  }
+  if (profilePublicName) {
+    profilePublicName.textContent = '互通后显示';
+  }
+  if (profilePublicNameMenuHint) {
+    profilePublicNameMenuHint.textContent = '互通后显示';
+  }
+  if (profilePublicAction) {
+    profilePublicAction.dataset.menuAction = 'wechatBind';
+    profilePublicAction.textContent = '去互通登录';
+  }
+  if (profileInteropHint) {
+    profileInteropHint.textContent = '去互通登录';
+  }
+  if (profilePostCount) {
+    profilePostCount.textContent = '--';
+  }
+  if (profileLikeCount) {
+    profileLikeCount.textContent = '--';
+  }
+  if (markAllReadBtn) {
+    markAllReadBtn.textContent = '去互通';
+  }
+  inboxCounts = { likes: 0, saved: 0 };
+  inboxTotals = { likes: 0, saved: 0 };
+  appState.inboxRead.likes = true;
+  appState.inboxRead.saved = true;
+  syncHeaderGreeting('');
+  renderProfileInbox();
+  updateProfileDot();
 }
 
 function renderProfileInbox() {
@@ -5592,6 +6185,24 @@ function renderProfileInbox() {
   }
 
   profileMessageList.innerHTML = '';
+
+  if (!hasProtectedProfileAccess()) {
+    const row = document.createElement('button');
+    row.className = 'inbox-row inbox-row-locked';
+    row.dataset.inboxId = 'likes';
+    row.type = 'button';
+    row.innerHTML = `
+      <div class="inbox-left">
+        <span class="inbox-title">完成微信互通后查看消息</span>
+        <span class="inbox-sub">未互通时不会展示点赞、收藏和个人互动记录</span>
+      </div>
+      <div class="inbox-right">
+        <span class="inbox-count">锁</span>
+      </div>
+    `;
+    profileMessageList.appendChild(row);
+    return;
+  }
 
   inboxItems.forEach((item) => {
     const unread = unreadCountByType(item.id);
@@ -5621,6 +6232,10 @@ function applyProfileSummary(summary) {
   if (!summary || typeof summary !== 'object') {
     return;
   }
+  if (!summary.wechatBound) {
+    renderProtectedProfileGate();
+    return;
+  }
 
   if (appState.clientAuth) {
     appState.clientAuth.wechatBound = Boolean(summary.wechatBound);
@@ -5628,6 +6243,13 @@ function applyProfileSummary(summary) {
     saveState();
   }
 
+  if (profileHero) {
+    profileHero.classList.remove('is-locked');
+  }
+  const avatar = profileHero ? profileHero.querySelector('.profile-avatar') : null;
+  if (avatar) {
+    avatar.textContent = buildProfileAvatarText(summary.name || summary.publicName || '');
+  }
   if (profileName && summary.name) {
     profileName.textContent = summary.name;
   }
@@ -5637,6 +6259,19 @@ function applyProfileSummary(summary) {
   }
   if (profileBindState && summary.bindState) {
     profileBindState.textContent = summary.bindState;
+  }
+  if (profilePublicName && summary.publicName) {
+    profilePublicName.textContent = summary.publicName;
+  }
+  if (profilePublicNameMenuHint && summary.publicName) {
+    profilePublicNameMenuHint.textContent = summary.publicName;
+  }
+  if (profilePublicAction) {
+    profilePublicAction.dataset.menuAction = 'publicName';
+    profilePublicAction.textContent = '修改昵称';
+  }
+  if (markAllReadBtn) {
+    markAllReadBtn.textContent = '全部已读';
   }
   if (wechatBindRow) {
     const hint = wechatBindRow.querySelector('i');
@@ -5783,7 +6418,8 @@ function buildSearchFallbackDetail(source, postRef) {
     imageUrl: normalizeMediaUrl(source.image_url || source.imageUrl || ''),
     commentsPreview: [],
     postId: deriveFeedPostId(safeRef, source) || String(source.id || safeRef),
-    sourceType: 'search'
+    sourceType: 'search',
+    canDelete: false
   };
 }
 
@@ -5832,7 +6468,8 @@ function resolvePostDetailByRef(postId, sourceType = 'feed', fallbackItem = null
       ? source.commentsPreview
       : getCommentPreviewForPost(String(source.id || postId), 3),
     postId: feed ? feed.id : String(source.id || postId),
-    sourceType: 'feed'
+    sourceType: 'feed',
+    canDelete: Boolean(source.canDelete || source.can_delete)
   };
 }
 
@@ -5913,6 +6550,11 @@ async function openPostDetailSheet(postRef, sourceType = 'feed', fallbackItem = 
     postDetailCommentBtn.hidden = !canOpen;
     postDetailCommentBtn.dataset.postId = canOpen ? String(detail.postId) : '';
   }
+  if (postDetailDeleteBtn) {
+    const canDelete = detail.sourceType === 'feed' && detail.postId && Boolean(detail.canDelete);
+    postDetailDeleteBtn.hidden = !canDelete;
+    postDetailDeleteBtn.dataset.postId = canDelete ? String(detail.postId) : '';
+  }
   if (postFallbackList) {
     postFallbackList.innerHTML = '';
   }
@@ -5927,6 +6569,10 @@ function closePostDetailSheet() {
   }
   postDetailSheet.hidden = true;
   postDetailMask.hidden = true;
+  if (postDetailDeleteBtn) {
+    postDetailDeleteBtn.dataset.postId = '';
+    postDetailDeleteBtn.hidden = true;
+  }
 }
 
 function closeSearchResultSheet() {
@@ -5946,6 +6592,7 @@ function closeSubpageSheet() {
   setSubpageLayoutMode('default');
   currentSubpageListItems = [];
   currentSubpageSourceType = 'feed';
+  activeSubpageTopicKey = '';
   activeSubpageAction = null;
 }
 
@@ -5956,6 +6603,7 @@ function openSubpageSheet({ title = '', subtitle = '', body = '', actionLabel = 
   setSubpageLayoutMode('default');
   currentSubpageListItems = [];
   currentSubpageSourceType = 'feed';
+  activeSubpageTopicKey = '';
   subpageTitle.textContent = title || '页面';
   subpageSub.textContent = subtitle || '';
   subpageBody.innerHTML = body || '';
@@ -6027,7 +6675,10 @@ function openSubpageListPage({
   description = '',
   items = [],
   sourceType = 'feed',
-  emptyText = '暂无记录'
+  emptyText = '暂无记录',
+  actionLabel = '',
+  action = null,
+  topicKey = ''
 } = {}) {
   if (!subpageSheet || !subpageMask || !subpageTitle || !subpageSub || !subpageBody || !subpageActionBtn) {
     return;
@@ -6037,8 +6688,14 @@ function openSubpageListPage({
   subpageSub.textContent = subtitle || '';
   subpageBody.innerHTML = description ? `<p>${description}</p>` : '';
   renderSubpageList(items, sourceType, emptyText);
-  subpageActionBtn.hidden = true;
-  activeSubpageAction = null;
+  activeSubpageTopicKey = String(topicKey || '');
+  activeSubpageAction = typeof action === 'function' ? action : null;
+  if (actionLabel && activeSubpageAction) {
+    subpageActionBtn.textContent = actionLabel;
+    subpageActionBtn.hidden = false;
+  } else {
+    subpageActionBtn.hidden = true;
+  }
   closeInboxDetailSheet();
   closeCommentSheet();
   closePostDetailSheet();
@@ -6347,7 +7004,10 @@ function openErrandTaskDetail(taskId) {
   });
 }
 
-function openErrandCreateSheet() {
+async function openErrandCreateSheet() {
+  if (!await ensureWechatBoundAction('发布跑腿任务')) {
+    return;
+  }
   const identity = getCurrentClientIdentity();
   const body = `
     <div class="wechat-auth-panel">
@@ -6487,6 +7147,63 @@ function closeErrandPage() {
   errandMask.hidden = true;
 }
 
+function getCrossLocalResults(query = CROSS_DEFAULT_QUERY, limit = 10) {
+  const parts = String(query || CROSS_DEFAULT_QUERY)
+    .split(/\s+/)
+    .map((item) => item.trim())
+    .filter((item) => item);
+  const keywords = ['跨校', '互助', '组队', ...parts];
+  const merged = new Map();
+  keywords.forEach((keyword) => {
+    searchMarketPosts(keyword).forEach((item) => merged.set(String(item.id), item));
+  });
+  return sortMarketResults(Array.from(merged.values()), 'hot').slice(0, limit);
+}
+
+function renderCrossPostList(items = [], label = activeCrossLabel, emptyText = '当前讨论组暂无匹配帖子') {
+  if (!crossPostList) {
+    return;
+  }
+  const list = Array.isArray(items) ? items : [];
+  currentCrossPostItems = [...list];
+  if (crossPostTitle) {
+    crossPostTitle.textContent = `${label || '今日热议'} · 匹配帖子`;
+  }
+  if (crossPostCount) {
+    crossPostCount.textContent = `${list.length} 条`;
+  }
+  if (!list.length) {
+    crossPostList.innerHTML = `<div class="subpage-empty">${escapeHtml(emptyText)}</div>`;
+    return;
+  }
+  crossPostList.innerHTML = list.map((item, index) => `
+    <article class="cross-post" data-cross-post-index="${index}" data-market-post-id="${escapeHtml(item.id || '')}" role="button" tabindex="0">
+      <div>
+        <h6>${escapeHtml(item.title || '相关帖子')}</h6>
+        <p>${escapeHtml(item.snippet || item.content || '')}</p>
+        <small>${escapeHtml(item.meta || '论坛帖子')} · 点赞 ${escapeHtml(item.likes || 0)} · 评论 ${escapeHtml(item.comments || 0)}</small>
+      </div>
+      <span>查看原帖</span>
+    </article>
+  `).join('');
+}
+
+async function loadCrossMatches(query = CROSS_DEFAULT_QUERY, label = '今日热议') {
+  activeCrossQuery = String(query || CROSS_DEFAULT_QUERY).trim() || CROSS_DEFAULT_QUERY;
+  activeCrossLabel = String(label || '今日热议').trim() || '今日热议';
+  const fallbackItems = getCrossLocalResults(activeCrossQuery, 10);
+  renderCrossPostList(fallbackItems, activeCrossLabel, '当前讨论组暂无匹配帖子，发布一条新帖来开个头吧');
+
+  const remoteResult = await apiAdapter.searchPosts(activeCrossQuery, 'hot', { page: 1, pageSize: 10 });
+  if (!crossGroupSheet || crossGroupSheet.hidden || activeCrossQuery !== String(query || CROSS_DEFAULT_QUERY).trim()) {
+    return;
+  }
+  const remoteItems = remoteResult && Array.isArray(remoteResult.items) && remoteResult.items.length
+    ? remoteResult.items
+    : fallbackItems;
+  renderCrossPostList(remoteItems, activeCrossLabel, '当前讨论组暂无匹配帖子，发布一条新帖来开个头吧');
+}
+
 function renderCrossGroupPage() {
   if (crossGroupList) {
     crossGroupList.innerHTML = crossGroups
@@ -6501,7 +7218,10 @@ function renderCrossGroupPage() {
               <span>${escapeHtml(String(group.members))} 人</span>
               <span>在线 ${escapeHtml(String(group.online))}</span>
             </div>
-            <button class="btn-light" type="button" data-cross-action="join" data-cross-group-id="${escapeHtml(group.id)}">加入讨论</button>
+            <div class="cross-card-actions">
+              <button class="btn-light cross-card-action" type="button" data-cross-action="detail" data-cross-group-id="${escapeHtml(group.id)}">查看详情</button>
+              <button class="btn-light cross-card-action is-primary" type="button" data-cross-action="join" data-cross-group-id="${escapeHtml(group.id)}">加入小组</button>
+            </div>
           </article>
         `
       )
@@ -6525,6 +7245,62 @@ function renderCrossGroupPage() {
   }
 }
 
+function setCrossGroupDetailMode(isDetail = false) {
+  if (crossGroupSheet) {
+    crossGroupSheet.classList.toggle('is-detail', Boolean(isDetail));
+  }
+  if (crossGroupDetail) {
+    crossGroupDetail.hidden = !isDetail;
+  }
+}
+
+function renderCrossGroupDetail(group, joined = false) {
+  if (!crossGroupDetail || !group) {
+    return;
+  }
+  const tagHtml = Array.isArray(group.tags)
+    ? group.tags.map((tag) => `<span>#${escapeHtml(tag)}</span>`).join('')
+    : '';
+  crossGroupDetail.innerHTML = `
+    <div class="cross-detail-head">
+      <div>
+        <span class="cross-detail-state">${joined ? '已加入小组' : '小组详情'}</span>
+        <h5>${escapeHtml(group.title)}</h5>
+        <p>进入单独小组页后，可以集中查看匹配帖子，也可以用右下角 + 发起新的跨校讨论。</p>
+      </div>
+      <button class="btn-light cross-detail-back" type="button" data-cross-detail-back>返回小组列表</button>
+    </div>
+    <div class="cross-meta cross-detail-meta">
+      <span>${escapeHtml(String(group.members))} 人</span>
+      <span>在线 ${escapeHtml(String(group.online))}</span>
+    </div>
+    <div class="cross-tags">${tagHtml}</div>
+  `;
+}
+
+function openCrossGroupDetail(group, joined = false) {
+  if (!group) {
+    showToast('讨论组不存在');
+    return;
+  }
+  const keyword = `${group.title} ${Array.isArray(group.tags) ? group.tags.join(' ') : ''}`.trim();
+  renderCrossGroupDetail(group, joined);
+  setCrossGroupDetailMode(true);
+  if (crossGroupScroll) {
+    crossGroupScroll.scrollTop = 0;
+  }
+  void loadCrossMatches(keyword, group.title);
+  showToast(joined ? `已加入「${group.title}」` : `已打开「${group.title}」`);
+}
+
+function returnCrossGroupList() {
+  setCrossGroupDetailMode(false);
+  if (crossGroupScroll) {
+    crossGroupScroll.scrollTop = 0;
+  }
+  void loadCrossMatches(CROSS_DEFAULT_QUERY, '今日热议');
+}
+
 function openCrossGroupPage() {
   if (!crossGroupSheet || !crossGroupMask) {
     return;
@@ -6538,8 +7314,13 @@ function openCrossGroupPage() {
   closeErrandPage();
   closeEduSheet();
   renderCrossGroupPage();
+  setCrossGroupDetailMode(false);
+  if (crossGroupScroll) {
+    crossGroupScroll.scrollTop = 0;
+  }
   crossGroupSheet.hidden = false;
   crossGroupMask.hidden = true;
+  void loadCrossMatches(CROSS_DEFAULT_QUERY, '今日热议');
 }
 
 function closeCrossGroupPage() {
@@ -6548,6 +7329,7 @@ function closeCrossGroupPage() {
   }
   crossGroupSheet.hidden = true;
   crossGroupMask.hidden = true;
+  setCrossGroupDetailMode(false);
 }
 
 function findCrossGroup(groupId) {
@@ -6729,7 +7511,10 @@ function locateOriginalPost(postRef, sourceType = 'feed', hintText = '') {
   });
 }
 
-function openInboxDetailSheet(type) {
+async function openInboxDetailSheet(type) {
+  if (!await ensureWechatBoundAction(type === 'saved' ? '查看收藏列表' : '查看收到的赞')) {
+    return;
+  }
   activeDetailTab = type === 'saved' ? 'saved' : 'likes';
   renderDetailTabs();
 
@@ -6756,6 +7541,10 @@ async function refreshUnreadCounts() {
   }
 
   if (!API_CONFIG.enabled) {
+    return false;
+  }
+  if (!hasProtectedProfileAccess()) {
+    renderProtectedProfileGate();
     return false;
   }
 
@@ -6809,7 +7598,11 @@ async function refreshVisibleClientState(options = {}) {
   try {
     await ensureClientSession();
     const activeView = String(appState.lastTab || 'home').trim() || 'home';
-    const tasks = [refreshUnreadCounts()];
+    const hasPrivateProfile = hasProtectedProfileAccess();
+    if (!hasPrivateProfile) {
+      renderProtectedProfileGate();
+    }
+    const tasks = hasPrivateProfile ? [refreshUnreadCounts()] : [];
 
     if (activeView === 'home') {
       tasks.push(hydrateFeedByFilter(appState.activeFeedFilter || 'all'));
@@ -6819,7 +7612,7 @@ async function refreshVisibleClientState(options = {}) {
       })());
     }
 
-    if (activeView === 'profile') {
+    if (activeView === 'profile' && hasPrivateProfile) {
       tasks.push((async () => {
         const [remoteProfile, profileSettings] = await Promise.all([
           apiAdapter.fetchProfileSummary(),
@@ -6845,12 +7638,18 @@ async function refreshVisibleClientState(options = {}) {
 }
 
 async function markActiveTypeRead() {
+  if (!await ensureWechatBoundAction('标记消息已读')) {
+    return;
+  }
   await markInboxRead(activeDetailTab);
   renderInboxDetailList();
   showToast('已标记当前分类为已读');
 }
 
 async function markAllInboxRead() {
+  if (!await ensureWechatBoundAction('标记消息已读')) {
+    return;
+  }
   const hasUnread = getUnreadCount() > 0;
   if (!hasUnread) {
     showToast('已是全部已读');
@@ -7008,6 +7807,10 @@ function applyProfileSettings(settings) {
   if (!settings || typeof settings !== 'object') {
     return;
   }
+  if (settings.wechatBound === false) {
+    renderProtectedProfileGate();
+    return;
+  }
 
   if (!appState.clientAuth) {
     appState.clientAuth = { ...defaultState.clientAuth };
@@ -7035,12 +7838,24 @@ function applyProfileSettings(settings) {
   if (profileInteropHint) {
     profileInteropHint.textContent = nextWechatBound ? '已开启微信互通' : '未绑定，互动需先互通';
   }
+  if (profilePublicAction) {
+    profilePublicAction.dataset.menuAction = nextWechatBound ? 'publicName' : 'wechatBind';
+    profilePublicAction.textContent = nextWechatBound ? '修改昵称' : '去互通登录';
+  }
+  if (markAllReadBtn && nextWechatBound) {
+    markAllReadBtn.textContent = '全部已读';
+  }
   syncHeaderGreeting(settings.displayName || settings.publicName || '');
 }
 
 async function hydrateRemoteState() {
   await ensureClientSession();
-  await refreshUnreadCounts();
+  const hasPrivateProfile = hasProtectedProfileAccess();
+  if (!hasPrivateProfile) {
+    renderProtectedProfileGate();
+  } else {
+    await refreshUnreadCounts();
+  }
   void hydrateFeedByFilter(appState.activeFeedFilter || 'all');
 
   const remoteHotTopics = await apiAdapter.fetchHomeHotTopics();
@@ -7053,19 +7868,24 @@ async function hydrateRemoteState() {
     renderRecentSearches();
   }
 
-  const [remoteProfile, profileSettings] = await Promise.all([
-    apiAdapter.fetchProfileSummary(),
-    apiAdapter.fetchProfileSettings()
-  ]);
-  if (remoteProfile) {
-    applyProfileSummary(remoteProfile);
-  }
-  if (profileSettings) {
-    applyProfileSettings(profileSettings);
+  if (hasPrivateProfile) {
+    const [remoteProfile, profileSettings] = await Promise.all([
+      apiAdapter.fetchProfileSummary(),
+      apiAdapter.fetchProfileSettings()
+    ]);
+    if (remoteProfile) {
+      applyProfileSummary(remoteProfile);
+    }
+    if (profileSettings) {
+      applyProfileSettings(profileSettings);
+    }
   }
 }
 
-function openPublicNameSheet() {
+async function openPublicNameSheet() {
+  if (!await ensureWechatBoundAction('修改发言昵称')) {
+    return;
+  }
   const current = String(
     (profilePublicName && profilePublicName.textContent)
     || (appState.clientAuth && appState.clientAuth.publicName)
@@ -7116,7 +7936,7 @@ function openWechatAuthPage() {
       <div class="wechat-auth-panel">
         <div class="wechat-auth-hero">
           <strong>微信互通登录</strong>
-          <p>网页端浏览和搜索不受影响；发帖、评论、点赞、收藏和跑腿等互动操作，需要先通过小程序微信身份互通。</p>
+          <p>网页端浏览和搜索不受影响；发帖、评论、点赞、收藏、跑腿和教务查询等受保护操作，需要先通过小程序微信身份互通。</p>
         </div>
         <div class="wechat-auth-steps">
           <div class="wechat-auth-step"><span>1</span><p>打开微信小程序“我的”页，进入“网页互通登录”。</p></div>
@@ -7156,6 +7976,9 @@ function openWechatAuthPage() {
 }
 
 async function openMyPostsPage() {
+  if (!await ensureWechatBoundAction('查看我的帖子')) {
+    return;
+  }
   const [remotePosts, remoteErrands] = await Promise.all([
     apiAdapter.fetchMyPosts(),
     apiAdapter.fetchErrands('my')
@@ -7191,6 +8014,7 @@ function renderSubpageList(items, sourceType = 'feed', emptyText = '暂无记录
   const list = Array.isArray(items) ? items : [];
   currentSubpageListItems = [...list];
   currentSubpageSourceType = sourceType;
+  currentSubpageEmptyText = emptyText;
   if (!list.length) {
     const empty = document.createElement('div');
     empty.className = 'subpage-empty';
@@ -7224,12 +8048,14 @@ function renderSubpageList(items, sourceType = 'feed', emptyText = '暂无记录
         <div class="subpage-stats">${escapeHtml(locationText || '跑腿任务')} </div>
       `;
     } else {
+      const canDelete = Boolean(item && (item.canDelete || item.can_delete));
       card.dataset.feedPostId = safeId;
       card.innerHTML = `
         <div class="subpage-meta">${escapeHtml(item.author || '@匿名用户')} · ${escapeHtml(item.time || '')}</div>
         <h5>${escapeHtml(item.title)}</h5>
         <p>${escapeHtml(item.content || '')}</p>
         <div class="subpage-stats">点赞 ${escapeHtml(item.likes || 0)} · 评论 ${escapeHtml(item.comments || 0)}</div>
+        ${canDelete ? `<div class="subpage-card-actions"><button class="subpage-delete-btn" type="button" data-delete-post-id="${escapeHtml(safeId)}">删除帖子</button></div>` : ''}
       `;
     }
     subpageList.appendChild(card);
@@ -7266,6 +8092,26 @@ function shouldShowErrandInDefaultPool(task) {
   return status === 'open' || isErrandRunnerTask(task) || isErrandPublisherTask(task);
 }
 
+function mergeErrandTaskLists(poolTasks = [], myTasks = []) {
+  const merged = new Map();
+  [...poolTasks, ...myTasks].forEach((task) => {
+    if (!task || !task.id) {
+      return;
+    }
+    const id = String(task.id);
+    const previous = merged.get(id);
+    merged.set(id, previous ? { ...previous, ...task } : task);
+  });
+  return Array.from(merged.values()).sort((left, right) => {
+    const leftStatus = ERRAND_STATUS_ORDER[normalizeErrandStatus(left.status)] ?? 99;
+    const rightStatus = ERRAND_STATUS_ORDER[normalizeErrandStatus(right.status)] ?? 99;
+    if (leftStatus !== rightStatus) {
+      return leftStatus - rightStatus;
+    }
+    return Number(String(right.id || '').replace('e-', '') || 0) - Number(String(left.id || '').replace('e-', '') || 0);
+  });
+}
+
 function getErrandEmptyText() {
   if (activeErrandStatusFilter === 'inprogress') {
     return '你暂无进行中的接单任务';
@@ -7280,9 +8126,15 @@ function getErrandEmptyText() {
 }
 
 async function refreshErrandTasks({ silent = true } = {}) {
-  const remote = await apiAdapter.fetchErrands('all');
-  if (Array.isArray(remote)) {
-    errandTasks = remote;
+  const [poolTasks, myTasks] = await Promise.all([
+    apiAdapter.fetchErrands('all'),
+    apiAdapter.fetchErrands('my')
+  ]);
+  if (Array.isArray(poolTasks) || Array.isArray(myTasks)) {
+    errandTasks = mergeErrandTaskLists(
+      Array.isArray(poolTasks) ? poolTasks : [],
+      Array.isArray(myTasks) ? myTasks : []
+    );
     renderErrandSummary();
     renderErrandList();
     return errandTasks;
@@ -7388,7 +8240,7 @@ async function applyErrandAction(task, action) {
   if (!task || !action || action === 'detail') {
     return task || null;
   }
-  if (!requireWechatBoundAction('操作跑腿任务')) {
+  if (!await ensureWechatBoundAction('操作跑腿任务')) {
     return null;
   }
   const result = await apiAdapter.runErrandAction(task.id, action);
@@ -7413,6 +8265,15 @@ async function applyErrandAction(task, action) {
     }
   }
 
+  if (action === 'claim' || action === 'delivered') {
+    activeErrandStatusFilter = 'inprogress';
+  } else if (action === 'confirm') {
+    activeErrandStatusFilter = 'done';
+  } else if (action === 'cancel') {
+    activeErrandStatusFilter = 'open';
+  }
+
+  await refreshErrandTasks({ silent: true });
   renderErrandSummary();
   renderErrandList();
   showToast(result.message || '任务状态已更新');
@@ -7475,8 +8336,8 @@ function openErrandTaskDetail(taskId) {
   });
 }
 
-function openErrandCreateSheet() {
-  if (!requireWechatBoundAction('发布跑腿任务')) {
+async function openErrandCreateSheet() {
+  if (!await ensureWechatBoundAction('发布跑腿任务')) {
     return;
   }
   const identity = getCurrentClientIdentity();
@@ -7649,7 +8510,7 @@ if (feedList) {
 
 if (fabBtn) {
   fabBtn.addEventListener('click', () => {
-    openPostComposer();
+    void openPostComposer();
   });
 }
 
@@ -7775,15 +8636,7 @@ Array.from(document.querySelectorAll('.panel')).forEach((panel) => {
     }
 
     if (title && title.includes('课程评价')) {
-      const localResults = searchMarketPosts(title);
-      openSubpageListPage({
-        title,
-        subtitle: '专题频道',
-        description: '该频道展示对应主题的高赞帖子与问答。',
-        items: localResults,
-        sourceType: 'search',
-        emptyText: '暂无相关内容'
-      });
+      void openTopicChannelPage('course');
       return;
     }
 
@@ -7916,7 +8769,7 @@ if (profileMessageList) {
       return;
     }
 
-    openInboxDetailSheet(row.dataset.inboxId);
+    void openInboxDetailSheet(row.dataset.inboxId);
   });
 }
 
@@ -7954,6 +8807,13 @@ if (postDetailCommentBtn) {
     }
     closePostDetailSheet();
     openCommentSheet(postId);
+  });
+}
+
+if (postDetailDeleteBtn) {
+  postDetailDeleteBtn.addEventListener('click', () => {
+    const postId = postDetailDeleteBtn.dataset.postId || '';
+    void requestDeletePost(postId, { closeDetail: true });
   });
 }
 
@@ -8130,7 +8990,7 @@ if (errandStatusFilterButtons.length) {
 
 if (errandCreateBtn) {
   errandCreateBtn.addEventListener('click', () => {
-    openErrandCreateSheet();
+    void openErrandCreateSheet();
   });
 }
 
@@ -8185,21 +9045,28 @@ if (crossGroupMask) {
 
 if (crossGroupList) {
   crossGroupList.addEventListener('click', (event) => {
-    const trigger = event.target.closest('[data-cross-group-id]');
+    const trigger = event.target.closest('[data-cross-action][data-cross-group-id]');
     if (!trigger) {
       return;
     }
+    const action = String(trigger.dataset.crossAction || '');
     const group = findCrossGroup(trigger.dataset.crossGroupId);
     if (!group) {
       showToast('讨论组不存在');
       return;
     }
-    const keyword = `${group.title} ${group.tags.join(' ')}`.trim();
-    if (marketQuery) {
-      marketQuery.value = keyword;
+    event.preventDefault();
+    event.stopPropagation();
+    openCrossGroupDetail(group, action === 'join');
+  });
+}
+
+if (crossGroupDetail) {
+  crossGroupDetail.addEventListener('click', (event) => {
+    if (event.target.closest('[data-cross-detail-back]')) {
+      event.preventDefault();
+      returnCrossGroupList();
     }
-    closeCrossGroupPage();
-    void runMarketSearch({ openResultPage: true });
   });
 }
 
@@ -8209,7 +9076,12 @@ if (crossTopicList) {
     if (!topicCard) {
       return;
     }
-    openCrossTopicDirect(topicCard.dataset.crossTopicId);
+    const topic = findCrossTopic(topicCard.dataset.crossTopicId);
+    if (!topic) {
+      showToast('该话题暂不可用');
+      return;
+    }
+    void loadCrossMatches(topic.query || topic.title, topic.title);
   });
 
   crossTopicList.addEventListener('keydown', (event) => {
@@ -8221,15 +9093,56 @@ if (crossTopicList) {
       return;
     }
     event.preventDefault();
-    openCrossTopicDirect(topicCard.dataset.crossTopicId);
+    const topic = findCrossTopic(topicCard.dataset.crossTopicId);
+    if (!topic) {
+      return;
+    }
+    void loadCrossMatches(topic.query || topic.title, topic.title);
+  });
+}
+
+if (crossPostList) {
+  crossPostList.addEventListener('click', (event) => {
+    const card = event.target.closest('.cross-post[data-market-post-id]');
+    if (!card) {
+      return;
+    }
+    const index = Number(card.dataset.crossPostIndex || -1);
+    const fallback = !Number.isNaN(index) && index >= 0 ? currentCrossPostItems[index] : null;
+    void openPostDetailSheet(card.dataset.marketPostId || '', 'search', fallback);
+  });
+  crossPostList.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+    const card = event.target.closest('.cross-post[data-market-post-id]');
+    if (!card) {
+      return;
+    }
+    event.preventDefault();
+    const index = Number(card.dataset.crossPostIndex || -1);
+    const fallback = !Number.isNaN(index) && index >= 0 ? currentCrossPostItems[index] : null;
+    void openPostDetailSheet(card.dataset.marketPostId || '', 'search', fallback);
+  });
+}
+
+if (crossPostCreateBtn) {
+  crossPostCreateBtn.addEventListener('click', () => {
+    void openPostComposer({
+      category: 'study',
+      tags: ['跨校', '互助', '组队'],
+      titlePlaceholder: '例如：跨校竞赛组队还缺前端同学',
+      contentPlaceholder: '建议写清楚目标、人数、时间安排、联系方式和希望对方承担的分工。'
+    });
   });
 }
 
 if (subpageActionBtn) {
-  subpageActionBtn.addEventListener('click', () => {
+  subpageActionBtn.addEventListener('click', async () => {
     if (activeSubpageAction) {
       const result = activeSubpageAction();
-      if (result === false) {
+      const resolved = result && typeof result.then === 'function' ? await result : result;
+      if (resolved === false) {
         return;
       }
       closeSubpageSheet();
@@ -8253,6 +9166,13 @@ if (subpageList) {
     if (eduBtn) {
       closeSubpageSheet();
       void openEduSheet(eduBtn.dataset.eduAction || '');
+      return;
+    }
+    const deleteBtn = event.target.closest('button[data-delete-post-id]');
+    if (deleteBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      void requestDeletePost(deleteBtn.dataset.deletePostId || '');
       return;
     }
     const feedCard = event.target.closest('[data-feed-post-id]');
@@ -8431,7 +9351,7 @@ if (postComposerForm) {
 }
 
 if (commentList) {
-  commentList.addEventListener('click', (event) => {
+  commentList.addEventListener('click', async (event) => {
     const image = event.target.closest('img[data-image-viewer]');
     if (image) {
       openImageViewer(image.src, image.alt || '评论图片');
@@ -8444,7 +9364,7 @@ if (commentList) {
     }
     const replyBtn = event.target.closest('button[data-reply-comment-id]');
     if (replyBtn) {
-      if (!requireWechatBoundAction('回复评论')) {
+      if (!await ensureWechatBoundAction('回复评论')) {
         return;
       }
       setReplyTarget(replyBtn.dataset.replyCommentId);
@@ -8452,7 +9372,7 @@ if (commentList) {
     }
     const likeBtn = event.target.closest('button[data-like-comment-id]');
     if (likeBtn) {
-      if (!requireWechatBoundAction('点赞评论')) {
+      if (!await ensureWechatBoundAction('点赞评论')) {
         return;
       }
       const commentId = String(likeBtn.dataset.likeCommentId || '');
@@ -8513,7 +9433,7 @@ if (commentList) {
         const card = deleteBtn.closest('.comment-item');
         commentId = card ? String(card.dataset.commentId || '') : '';
       }
-      requestDeleteComment(commentId);
+      void requestDeleteComment(commentId);
       return;
     }
   });
@@ -8522,6 +9442,10 @@ if (commentList) {
 Array.from(document.querySelectorAll('.category-item')).forEach((button) => {
   button.addEventListener('click', () => {
     const category = button.dataset.category || '分类频道';
+    if (String(category).includes('课程评价')) {
+      void openTopicChannelPage('course');
+      return;
+    }
     const localResults = searchMarketPosts(category);
     openSubpageListPage({
       title: category,
@@ -8554,7 +9478,7 @@ Array.from(document.querySelectorAll('.stat-item')).forEach((button) => {
   button.addEventListener('click', () => {
     const action = button.dataset.statAction || 'stats';
     if (action === 'receivedLikes') {
-      openInboxDetailSheet('likes');
+      void openInboxDetailSheet('likes');
     } else {
       void openMyPostsPage();
     }
@@ -8574,11 +9498,19 @@ Array.from(document.querySelectorAll('.menu-row, .profile-public-action[data-men
       return;
     }
     if (action === 'publicName') {
-      openPublicNameSheet();
+      void openPublicNameSheet();
       return;
     }
     if (action === 'wechatBind') {
       openWechatAuthPage();
+      return;
+    }
+    if (action === 'webLogout') {
+      void (async () => {
+        await logoutClient({ remote: true });
+        showToast('已退出当前网页登录');
+        openWechatAuthPage();
+      })();
       return;
     }
     openSubpageSheet({
@@ -8710,6 +9642,9 @@ if (todaySentence) {
   todaySentence.textContent = `${weekdayMap[now.getDay()]} · ${now.getMonth() + 1}月${now.getDate()}日，欢迎回来`;
 }
 syncHeaderGreeting();
+if (!hasProtectedProfileAccess()) {
+  renderProtectedProfileGate();
+}
 
 // Initial render
 applyLikedStateToLocalFeed();
@@ -8764,12 +9699,17 @@ function getClientSessionSnapshot() {
     publicName: String(appState.clientAuth.publicName || ''),
     wechatBound: Boolean(appState.clientAuth.wechatBound),
     bindState: String(appState.clientAuth.bindState || ''),
+    sessionType: String(appState.clientAuth.sessionType || ''),
+    webSessionExpiresAt: Number(appState.clientAuth.webSessionExpiresAt || 0),
     token: String(appState.clientAuth.token || ''),
     refreshToken: String(appState.clientAuth.refreshToken || '')
   };
 }
 
 async function getReadyClientSession() {
+  if (isWebSessionExpired() || isLegacyBoundWebSession()) {
+    await handleWebSessionExpired(true);
+  }
   if (!appState.clientAuth || !appState.clientAuth.token) {
     if (clientAuthBootstrapPromise) {
       await clientAuthBootstrapPromise;
@@ -8792,6 +9732,8 @@ if (typeof window !== 'undefined') {
   };
 }
 
+scheduleWebSessionExpiryCheck();
+void handleWebSessionExpired(false);
 clientAuthBootstrapPromise = bootstrapClientAuth().catch(() => null);
 startUnreadPolling();
 
@@ -8829,7 +9771,7 @@ function openWechatAuthPage() {
       <div class="wechat-auth-panel">
         <div class="wechat-auth-hero">
           <strong>微信互通登录</strong>
-          <p>网页端浏览和搜索不受影响；发帖、评论、点赞、收藏和跑腿等互动操作，需要先通过小程序微信身份互通，确保账号可信、数据同步、操作可追溯。</p>
+          <p>网页端浏览和搜索不受影响；发帖、评论、点赞、收藏、跑腿和教务查询等受保护操作，需要先通过小程序微信身份互通，确保账号可信、数据同步、操作可追溯。</p>
         </div>
         <div class="wechat-auth-steps">
           <div class="wechat-auth-step"><span>1</span><p>打开微信小程序“我的”页，确认已完成微信登录。</p></div>

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
-from app.api.deps import ClientIdentity, require_client_identity
+from app.api.deps import ClientIdentity, require_wechat_bound_client
 from app.schemas.client import (
     EduExamListResponse,
     EduFreeClassroomResponse,
@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 def require_edu_session(
-    identity: ClientIdentity = Depends(require_client_identity),
+    identity: ClientIdentity = Depends(require_wechat_bound_client),
     edu_session: str | None = Header(default=None, alias="X-Edu-Session"),
 ) -> ClientIdentity:
     if not str(edu_session or "").strip():

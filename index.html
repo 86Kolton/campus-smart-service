@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>校园助手</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-  <link rel="stylesheet" href="./styles.css?v=20260519-01">
+  <link rel="stylesheet" href="./styles.css?v=20260519-08">
 </head>
 <body>
   <div class="ambient" aria-hidden="true">
@@ -238,27 +238,27 @@
           <div id="wikiDetailMask" class="detail-mask" hidden></div>
 
             <section class="screen" data-view="profile" aria-label="我的">
-              <article class="card profile-hero">
-                <div class="profile-avatar">ZY</div>
-                <h3 id="profileName">赵毅</h3>
-                <p id="profileMeta">河北大学 · 软件工程 2022 级</p>
-                <p class="bind-state" id="profileBindState">已绑定微信身份</p>
+              <article class="card profile-hero is-locked">
+                <div class="profile-avatar">未</div>
+                <h3 id="profileName">请先完成微信互通</h3>
+                <p id="profileMeta">未互通前，网页端不会展示个人资料、消息和教务信息</p>
+                <p class="bind-state" id="profileBindState">未完成微信互通</p>
                 <div class="profile-public-strip">
                   <div>
                     <span class="profile-public-label">发言昵称</span>
-                    <strong id="profilePublicName">赵同学</strong>
+                    <strong id="profilePublicName">互通后显示</strong>
                   </div>
-                  <button class="btn-light profile-public-action" type="button" data-menu-action="publicName">修改昵称</button>
+                  <button class="btn-light profile-public-action" type="button" data-menu-action="wechatBind">去互通登录</button>
                 </div>
               </article>
 
               <article class="card stats-card">
                 <button class="stat-item" data-stat-action="myPosts">
-                  <strong id="profilePostCount">28</strong>
+                  <strong id="profilePostCount">--</strong>
                   <span>发帖</span>
                 </button>
                 <button class="stat-item" data-stat-action="receivedLikes" aria-label="查看收到的赞">
-                  <strong id="profileLikeCount">176</strong>
+                  <strong id="profileLikeCount">--</strong>
                   <span>收到的赞</span>
                 </button>
               </article>
@@ -267,7 +267,7 @@
                 <div class="card-head">
                   <h4>消息中心</h4>
                   <div class="inbox-head-actions">
-                    <button id="markAllReadBtn" class="text-btn" type="button">全部已读</button>
+                    <button id="markAllReadBtn" class="text-btn" type="button">去互通</button>
                   </div>
                 </div>
                 <div id="profileMessageList" class="inbox-list"></div>
@@ -307,8 +307,9 @@
               <article class="card menu-card">
                 <button class="menu-row" data-menu-action="myPosts"><span>我的帖子</span><i>></i></button>
                 <button class="menu-row" data-menu-action="likedPosts"><span>我的点赞</span><i>></i></button>
-                <button class="menu-row" data-menu-action="publicName"><span>发言昵称</span><i id="profilePublicNameMenuHint">赵同学</i></button>
-                <button class="menu-row" data-menu-action="wechatBind"><span>账号互通</span><i id="profileInteropHint">通过小程序互通登录</i></button>
+                <button class="menu-row" data-menu-action="publicName"><span>发言昵称</span><i id="profilePublicNameMenuHint">互通后显示</i></button>
+                <button class="menu-row" data-menu-action="wechatBind"><span>账号互通</span><i id="profileInteropHint">去互通登录</i></button>
+                <button class="menu-row" data-menu-action="webLogout"><span>退出网页登录</span><i>当前网页</i></button>
               </article>
 
               <article class="card usage-card">
@@ -440,17 +441,30 @@
                 </button>
               </div>
             </header>
-            <div class="cross-hero">
-              <h5>今日热议</h5>
-              <p>跨校话题精选与高赞讨论同步更新，支持加入讨论组与匿名发言。</p>
-              <div class="cross-tags">
-                <span>#期末备考</span>
-                <span>#空教室情报</span>
-                <span>#竞赛组队</span>
+            <div id="crossGroupScroll" class="cross-scroll">
+              <div class="cross-hero">
+                <h5>今日热议</h5>
+                <p>跨校话题精选与高赞讨论同步更新，支持加入讨论组与匿名发言。</p>
+                <div class="cross-tags">
+                  <span>#期末备考</span>
+                  <span>#空教室情报</span>
+                  <span>#竞赛组队</span>
+                </div>
               </div>
+              <section id="crossGroupDetail" class="cross-detail" aria-label="小组详情" hidden></section>
+              <div class="cross-grid" id="crossGroupList"></div>
+              <div class="cross-topic-list" id="crossTopicList"></div>
+              <section class="cross-post-panel" aria-label="跨校匹配帖子">
+                <div class="cross-post-head">
+                  <h5 id="crossPostTitle">今日热议 · 匹配帖子</h5>
+                  <span id="crossPostCount">0 条</span>
+                </div>
+                <div id="crossPostList" class="cross-post-list"></div>
+              </section>
             </div>
-            <div class="cross-grid" id="crossGroupList"></div>
-            <div class="cross-topic-list" id="crossTopicList"></div>
+            <button id="crossPostCreateBtn" class="cross-create-btn cross-fab" type="button" aria-label="发布跨校帖子">
+              <span aria-hidden="true">+</span>
+            </button>
           </section>
           <div id="crossGroupMask" class="detail-mask" hidden></div>
 
@@ -489,6 +503,7 @@
               <div id="postDetailPreview" class="post-detail-preview"></div>
               <div class="post-detail-actions">
                 <button id="postDetailCommentBtn" class="detail-link-btn" type="button" hidden>查看本帖评论</button>
+                <button id="postDetailDeleteBtn" class="detail-link-btn danger-link-btn" type="button" hidden>删除原帖</button>
               </div>
               <p id="postDetailTags" class="post-detail-tags">标签</p>
               <div id="postFallbackList" class="fallback-list"></div>
@@ -580,7 +595,7 @@
     </div>
   </div>
 
-  <script src="./app.js?v=20260519-01"></script>
+  <script src="./app.js?v=20260519-08"></script>
 </body>
 </html>
 

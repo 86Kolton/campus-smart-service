@@ -2,6 +2,18 @@ const { test, expect } = require("@playwright/test");
 
 const BASE_URL = "http://127.0.0.1:5173/index.html";
 
+async function ensureBoundWebSession(page, label) {
+  await page.waitForFunction(() => window.CampusClientAuth && window.CampusClientAuth.loginWithWechatCode);
+  const ok = await page.evaluate(
+    async ({ code, name }) => window.CampusClientAuth.loginWithWechatCode(code, name),
+    { code: `pw-${label}-${Date.now()}`, name: "Playwright同学" }
+  );
+  expect(ok).toBeTruthy();
+  const session = await page.evaluate(() => window.CampusClientAuth.getSessionSync());
+  expect(session.wechatBound).toBeTruthy();
+  await page.reload({ waitUntil: "domcontentloaded" });
+}
+
 async function openEduHall(page) {
   const commentStyle = await page.locator('#feedList button[data-action="comment"]').first().evaluate((node) => {
     const style = window.getComputedStyle(node);
@@ -22,6 +34,7 @@ async function openEduHall(page) {
 
 test("edu hall supports full selection flow", async ({ page }) => {
   await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+  await ensureBoundWebSession(page, "edu");
   await openEduHall(page);
 
   await expect(page.locator('#eduSheet .edu-module-btn[data-edu-nav="grades"]')).toBeVisible();

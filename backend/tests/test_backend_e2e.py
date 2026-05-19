@@ -5,8 +5,10 @@ import hashlib
 import json
 import os
 from datetime import datetime, timedelta, timezone
+from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
+from zipfile import ZipFile
 
 import httpx
 import pytest
@@ -18,13 +20,18 @@ os.environ["QDRANT_URL"] = ""
 os.environ["QA_BASE_URL"] = ""
 os.environ["QA_API_KEY"] = ""
 os.environ["QA_MODEL"] = ""
+os.environ["DOCUMENT_OCR_BASE_URL"] = ""
+os.environ["DOCUMENT_OCR_API_KEY"] = ""
+os.environ["DOCUMENT_OCR_MODEL"] = ""
 
 from app.core.config import settings
 from app.core.passwords import PBKDF2_ALGORITHM, hash_password, needs_password_rehash, verify_password
+from app.core.security import decode_access_token
 from app.core.database import SessionLocal
 from app.models.comment import Comment
 from app.models.comment_like import CommentLike
 from app.models.message import MessageNotification
+from app.models.knowledge import KnowledgeDocument
 from app.models.post import Post
 from app.models.post_adoption import PostAdoption
 from app.models.post_like import PostLike
@@ -36,12 +43,46 @@ if DB_FILE.exists():
     DB_FILE.unlink()
 
 from app.main import app  # noqa: E402
+from app.rag.parser.document_parser import document_parser  # noqa: E402
+from app.rag.pipeline import rag_pipeline  # noqa: E402
 from app.services.document_upload_service import MAX_DOCUMENT_BYTES, document_upload_service  # noqa: E402
 from app.services.evolution_service import evolution_service  # noqa: E402
 from app.services.knowledge_cache_service import knowledge_cache_service  # noqa: E402
 from app.services.maintenance_service import maintenance_service  # noqa: E402
+from app.services.qa_provider import qa_provider  # noqa: E402
 from app.services.wechat_service import wechat_service  # noqa: E402
 from scripts.seed_hbu_kb import seed_local_documents  # noqa: E402
+
+
+def _zip_bytes(files: dict[str, str]) -> bytes:
+    buffer = BytesIO()
+    with ZipFile(buffer, "w") as archive:
+        for name, content in files.items():
+            archive.writestr(name, content)
+    return buffer.getvalue()
+
+
+def _minimal_pdf_bytes(text: str = "Campus PDF") -> bytes:
+    stream = f"BT /F1 18 Tf 72 720 Td ({text}) Tj ET".encode("latin1")
+    objects = [
+        b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+        b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+        b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+        b"/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n",
+        b"4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+        b"5 0 obj\n<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream\nendobj\n",
+    ]
+    payload = b"%PDF-1.4\n"
+    offsets = []
+    for item in objects:
+        offsets.append(len(payload))
+        payload += item
+    xref_offset = len(payload)
+    payload += f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode()
+    for offset in offsets:
+        payload += f"{offset:010d} 00000 n \n".encode()
+    payload += f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n".encode()
+    return payload
 
 
 def _admin_credentials() -> tuple[str, str]:
@@ -118,6 +159,62 @@ def test_backend_e2e_flow() -> None:
             post_id = str(feed_items[0].get("id", ""))
             assert post_id.startswith("p-")
 
+        with SessionLocal() as db:
+            next_post_id = int(db.scalar(select(func.max(Post.id))) or 0) + 1
+            db.add(
+                Post(
+                    id=next_post_id,
+                    author_id=int(client_login.get("user_id") or 1),
+                    category="study",
+                    title="pytest 跨校竞赛组队",
+                    content="跨校同学一起互助，正在找组队伙伴。",
+                    tags_json=json.dumps(["#跨校", "#互助", "#组队"], ensure_ascii=False),
+                    likes_count=5,
+                    comments_count=2,
+                    status="published",
+                    created_at=datetime.now(tz=timezone.utc),
+                )
+            )
+            db.add(
+                Post(
+                    id=next_post_id + 1,
+                    author_id=int(client_login.get("user_id") or 1),
+                    category="study",
+                    title="pytest 河北大学图书馆资源路线",
+                    content="WEBVPN 校外访问和电子资源入口整理。",
+                    tags_json=json.dumps(["#河北大学", "#图书馆", "#WEBVPN"], ensure_ascii=False),
+                    likes_count=6,
+                    comments_count=1,
+                    status="published",
+                    created_at=datetime.now(tz=timezone.utc),
+                )
+            )
+            db.commit()
+
+        cross_search = client.get(
+            "/api/client/search/posts",
+            params={"q": "跨校 组队", "sort": "hot"},
+            headers=client_headers,
+        )
+        assert cross_search.status_code == 200
+        assert any(item.get("title") == "pytest 跨校竞赛组队" for item in (cross_search.json().get("items") or []))
+
+        compact_cross_search = client.get(
+            "/api/client/search/posts",
+            params={"q": "跨校组队", "sort": "hot"},
+            headers=client_headers,
+        )
+        assert compact_cross_search.status_code == 200
+        assert any(item.get("title") == "pytest 跨校竞赛组队" for item in (compact_cross_search.json().get("items") or []))
+
+        mixed_search = client.get(
+            "/api/client/search/posts",
+            params={"q": "河北大学WEBVPN图书馆", "sort": "hot"},
+            headers=client_headers,
+        )
+        assert mixed_search.status_code == 200
+        assert any(item.get("title") == "pytest 河北大学图书馆资源路线" for item in (mixed_search.json().get("items") or []))
+
         # Multi-user isolation: user B can like/comment, cannot delete A's comment.
         user_b_name = f"user_b_{uuid4().hex[:8]}"
         b_register = client.post(
@@ -148,6 +245,91 @@ def test_backend_e2e_flow() -> None:
         )
         assert unbound_post.status_code == 403
         assert unbound_post.json().get("detail") == "wechat_bind_required"
+
+        unbound_like = client.post(
+            "/api/client/feed/like",
+            json={"post_id": post_id, "liked": True},
+            headers=b_headers,
+        )
+        assert unbound_like.status_code == 403
+        assert unbound_like.json().get("detail") == "wechat_bind_required"
+
+        unbound_save = client.post(
+            "/api/client/feed/save",
+            json={"post_id": post_id, "saved": True},
+            headers=b_headers,
+        )
+        assert unbound_save.status_code == 403
+        assert unbound_save.json().get("detail") == "wechat_bind_required"
+
+        unbound_comment = client.post(
+            "/api/client/feed/comment/create",
+            json={"post_id": post_id, "content": "unbound user should not comment", "client_id": "pytest-unbound"},
+            headers=b_headers,
+        )
+        assert unbound_comment.status_code == 403
+        assert unbound_comment.json().get("detail") == "wechat_bind_required"
+
+        unbound_errand = client.post(
+            "/api/client/errands",
+            json={
+                "task_type": "quick",
+                "title": "unbound errand should fail",
+                "reward": "5",
+                "time": "soon",
+                "pickup_location": "library",
+                "destination": "dorm",
+                "note": "security regression",
+                "contact": "wechat",
+            },
+            headers=b_headers,
+        )
+        assert unbound_errand.status_code == 403
+        assert unbound_errand.json().get("detail") == "wechat_bind_required"
+
+        for edu_path in (
+            "/api/client/edu/overview",
+            "/api/client/edu/grades",
+            "/api/client/edu/exams",
+            "/api/client/edu/schedule",
+            "/api/client/edu/free-classrooms",
+        ):
+            unbound_edu = client.get(
+                edu_path,
+                headers={**b_headers, "X-Edu-Session": "demo-edu-session"},
+            )
+            assert unbound_edu.status_code == 403
+            assert unbound_edu.json().get("detail") == "wechat_bind_required"
+
+        for private_path in (
+            "/api/client/profile/summary",
+            "/api/client/profile/settings",
+            "/api/client/profile/my-posts",
+            "/api/client/profile/liked-posts",
+            "/api/client/messages/unread-count",
+            "/api/client/messages/likes",
+            "/api/client/messages/saved",
+            "/api/client/errands/my",
+        ):
+            unbound_private = client.get(private_path, headers=b_headers)
+            assert unbound_private.status_code == 403
+            assert unbound_private.json().get("detail") == "wechat_bind_required"
+
+        unbound_public_name = client.post(
+            "/api/client/profile/public-name",
+            json={"public_name": "未绑定同学"},
+            headers=b_headers,
+        )
+        assert unbound_public_name.status_code == 403
+        assert unbound_public_name.json().get("detail") == "wechat_bind_required"
+
+        unbound_mark_read = client.post(
+            "/api/client/messages/mark-read",
+            json={"type": "likes"},
+            headers=b_headers,
+        )
+        assert unbound_mark_read.status_code == 403
+        assert unbound_mark_read.json().get("detail") == "wechat_bind_required"
         _bind_wechat_for_test(client, b_headers, "flow-b")
 
         a_comment = client.post(
@@ -158,6 +340,14 @@ def test_backend_e2e_flow() -> None:
         assert a_comment.status_code == 200
         a_comment_id = str(a_comment.json().get("id", ""))
         assert a_comment_id.startswith("c-")
+
+        unbound_comment_like = client.post(
+            "/api/client/feed/comment/like",
+            json={"comment_id": a_comment_id, "liked": True},
+            headers=c_headers,
+        )
+        assert unbound_comment_like.status_code == 403
+        assert unbound_comment_like.json().get("detail") == "wechat_bind_required"
 
         b_like = client.post(
             "/api/client/feed/like",
@@ -382,6 +572,52 @@ def test_backend_e2e_flow() -> None:
         assert runner_match[0].get("publisher_contact") == "站内私信 @夜读观察员"
         assert runner_match[0].get("is_runner") is True
 
+        runner_pool_errands = client.get("/api/client/errands", headers=b_headers)
+        assert runner_pool_errands.status_code == 200
+        runner_pool_match = [
+            item for item in (runner_pool_errands.json().get("items") or [])
+            if str(item.get("id")) == errand_id
+        ]
+        assert runner_pool_match
+        assert runner_pool_match[0].get("publisher_contact") == "站内私信 @夜读观察员"
+        assert runner_pool_match[0].get("can_view_contact") is True
+
+        create_second_errand = client.post(
+            "/api/client/errands",
+            json={
+                "task_type": "delivery",
+                "title": "pytest 再接一单",
+                "reward": "6",
+                "time": "30 分钟内",
+                "pickup_location": "北门外卖架",
+                "destination": "梅园 1 号楼",
+                "note": "验证同一接单人可以接多个订单",
+                "contact": "站内私信 @夜读观察员",
+            },
+            headers=client_headers,
+        )
+        assert create_second_errand.status_code == 200
+        second_errand_id = str(create_second_errand.json().get("id", ""))
+        assert second_errand_id.startswith("e-")
+
+        claim_second_errand = client.post(
+            "/api/client/errands/action",
+            json={"task_id": second_errand_id, "action": "claim"},
+            headers=b_headers,
+        )
+        assert claim_second_errand.status_code == 200
+        assert claim_second_errand.json().get("item", {}).get("is_runner") is True
+
+        runner_my_repeat = client.get("/api/client/errands/my", headers=b_headers)
+        assert runner_my_repeat.status_code == 200
+        runner_my_items = runner_my_repeat.json().get("items") or []
+        runner_my_ids = {str(item.get("id")) for item in runner_my_items}
+        assert {errand_id, second_errand_id}.issubset(runner_my_ids)
+        for item in runner_my_items:
+            if str(item.get("id")) in {errand_id, second_errand_id}:
+                assert item.get("publisher_contact") == "站内私信 @夜读观察员"
+                assert item.get("can_view_contact") is True
+
         stranger_errands = client.get("/api/client/errands", headers=c_headers)
         assert stranger_errands.status_code == 200
         stranger_match = [
@@ -397,6 +633,20 @@ def test_backend_e2e_flow() -> None:
             headers=b_headers,
         )
         assert deliver_errand.status_code == 200, deliver_errand.text
+        delivered_item = deliver_errand.json().get("item", {})
+        assert delivered_item.get("status") == "waiting_confirm"
+        assert delivered_item.get("publisher_contact") == "站内私信 @夜读观察员"
+
+        runner_waiting_confirm = client.get("/api/client/errands/my", headers=b_headers)
+        assert runner_waiting_confirm.status_code == 200
+        waiting_match = [
+            item for item in (runner_waiting_confirm.json().get("items") or [])
+            if str(item.get("id")) == errand_id
+        ]
+        assert waiting_match
+        assert waiting_match[0].get("status") == "waiting_confirm"
+        assert waiting_match[0].get("publisher_contact") == "站内私信 @夜读观察员"
+
         confirm_errand = client.post(
             "/api/client/errands/action",
             json={"task_id": errand_id, "action": "confirm"},
@@ -488,6 +738,21 @@ def test_backend_e2e_flow() -> None:
         )
         assert web_login_exchange.status_code == 200
         assert int(web_login_exchange.json().get("user_id", 0)) == int(client_login.get("user_id", 0))
+        web_login_payload = web_login_exchange.json()
+        assert web_login_payload.get("session_type") == "web"
+        assert int(web_login_payload.get("expires_in", 0)) == 3600
+        web_token = str(web_login_payload.get("access_token", ""))
+        web_refresh_token = str(web_login_payload.get("refresh_token", ""))
+        decoded_web_token = decode_access_token(web_token)
+        assert decoded_web_token.get("sid") == "web"
+        assert 3500 <= int(decoded_web_token.get("exp", 0)) - int(decoded_web_token.get("iat", 0)) <= 3700
+
+        web_refresh_attempt = client.post(
+            "/api/client/auth/refresh",
+            json={"refresh_token": web_refresh_token},
+        )
+        assert web_refresh_attempt.status_code == 401
+        assert web_refresh_attempt.json().get("detail") == "web_session_relogin_required"
 
         web_login_exchange_repeat = client.post(
             "/api/client/auth/web-login-exchange",
@@ -495,14 +760,31 @@ def test_backend_e2e_flow() -> None:
         )
         assert web_login_exchange_repeat.status_code == 401
 
+        logout_web_sessions = client.post("/api/client/auth/logout-web-sessions", headers=client_headers)
+        assert logout_web_sessions.status_code == 200
+        web_me_after_logout = client.get(
+            "/api/client/auth/me",
+            headers={"Authorization": f"Bearer {web_token}"},
+        )
+        assert web_me_after_logout.status_code == 401
+        assert web_me_after_logout.json().get("detail") == "client_token_revoked"
+        app_me_after_web_logout = client.get("/api/client/auth/me", headers=client_headers)
+        assert app_me_after_web_logout.status_code == 200
+
         refresh = client.post(
             "/api/client/auth/refresh",
             json={"refresh_token": client_refresh},
         )
-        assert refresh.status_code == 200
-        refreshed_token = str(refresh.json().get("access_token", ""))
-        assert refreshed_token
-        client_headers = {"Authorization": f"Bearer {refreshed_token}"}
+        if refresh.status_code == 200:
+            refreshed_token = str(refresh.json().get("access_token", ""))
+            assert refreshed_token
+            client_headers = {"Authorization": f"Bearer {refreshed_token}"}
+        else:
+            assert refresh.status_code == 401
+            refreshed_login = _client_login(client, username="zhaoyi")
+            refreshed_token = str(refreshed_login.get("access_token", ""))
+            assert refreshed_token
+            client_headers = {"Authorization": f"Bearer {refreshed_token}"}
 
         wechat_login = client.post(
             "/api/client/auth/wechat/login",
@@ -608,6 +890,7 @@ def test_backend_e2e_flow() -> None:
             ("/api/admin/feed/adoptions", "GET"),
             ("/api/admin/rag/evolution/sync-high-quality-posts", "POST"),
             ("/api/admin/maintenance/cleanup-stale-posts?days=7", "POST"),
+            ("/api/admin/maintenance/reconcile-interaction-counts", "POST"),
             ("/api/admin/devtools/self-check", "POST"),
         ]
 
@@ -750,6 +1033,64 @@ def test_deleted_post_and_comment_cleanup_message_counts() -> None:
         b_liked_posts_after_delete = client.get("/api/client/profile/liked-posts", headers=b_headers)
         assert b_liked_posts_after_delete.status_code == 200
         assert all(str(item.get("id")) != post_id for item in (b_liked_posts_after_delete.json().get("items") or []))
+
+
+def test_public_feed_hides_obvious_placeholder_artifacts() -> None:
+    with TestClient(app) as client:
+        suffix = uuid4().hex[:8]
+        register = client.post(
+            "/api/client/auth/register",
+            json={"username": f"artifact_{suffix}", "display_name": "artifact user", "password": "demo123"},
+        )
+        assert register.status_code == 200, register.text
+        headers = {"Authorization": f"Bearer {register.json()['access_token']}"}
+        _bind_wechat_for_test(client, headers, "artifact")
+
+        artifact = client.post(
+            "/api/client/feed/post/create",
+            json={"category": "study", "title": "1", "content": "1", "tags": ["smoke"]},
+            headers=headers,
+        )
+        assert artifact.status_code == 200, artifact.text
+        artifact_id = str(artifact.json().get("id", ""))
+
+        real = client.post(
+            "/api/client/feed/post/create",
+            json={
+                "category": "study",
+                "title": f"河北大学图书馆自习路线复核 {suffix}",
+                "content": "从图书馆官网和校园服务入口核对学习资源路线，适合演示真实校园帖子流。",
+                "tags": ["图书馆", "河北大学"],
+            },
+            headers=headers,
+        )
+        assert real.status_code == 200, real.text
+        real_id = str(real.json().get("id", ""))
+
+        raw_artifact_id = int(artifact_id.replace("p-", ""))
+        with SessionLocal() as db:
+            row = db.get(Post, raw_artifact_id)
+            assert row is not None
+            row.likes_count = 999
+            db.add(row)
+            db.commit()
+
+        feed = client.get("/api/client/feed/list", params={"filter": "all"}, headers=headers)
+        assert feed.status_code == 200
+        feed_ids = {str(item.get("id")) for item in (feed.json().get("items") or [])}
+        assert artifact_id not in feed_ids
+        assert real_id in feed_ids
+
+        detail = client.get("/api/client/feed/post", params={"post_id": artifact_id}, headers=headers)
+        assert detail.status_code == 404
+
+        hot = client.get("/api/client/home/hot-topics", headers=headers)
+        assert hot.status_code == 200
+        assert artifact_id not in {str(item.get("post_id")) for item in (hot.json().get("items") or [])}
+
+        search = client.get("/api/client/search/posts", params={"q": "1", "sort": "hot"}, headers=headers)
+        assert search.status_code == 200
+        assert artifact_id not in {str(item.get("post_id")) for item in (search.json().get("items") or [])}
 
 
 def test_duplicate_comment_text_likes_are_all_listed() -> None:
@@ -948,6 +1289,169 @@ def test_adoption_prune_and_maintenance_cleanup_cascade_related_rows() -> None:
                 )
                 == 0
             )
+
+
+def test_maintenance_reconcile_interaction_counts() -> None:
+    with TestClient(app) as client:
+        suffix = uuid4().hex[:8]
+        author_register = client.post(
+            "/api/client/auth/register",
+            json={"username": f"reconcile_author_{suffix}", "display_name": "reconcile A", "password": "demo123"},
+        )
+        assert author_register.status_code == 200, author_register.text
+        liker_register = client.post(
+            "/api/client/auth/register",
+            json={"username": f"reconcile_liker_{suffix}", "display_name": "reconcile B", "password": "demo123"},
+        )
+        assert liker_register.status_code == 200, liker_register.text
+        author_headers = {"Authorization": f"Bearer {author_register.json()['access_token']}"}
+        liker_headers = {"Authorization": f"Bearer {liker_register.json()['access_token']}"}
+        _bind_wechat_for_test(client, author_headers, "reconcile-author")
+        _bind_wechat_for_test(client, liker_headers, "reconcile-liker")
+
+        created = client.post(
+            "/api/client/feed/post/create",
+            json={
+                "category": "study",
+                "title": f"reconcile interaction counts {suffix}",
+                "content": "counter cache should match real interaction rows after maintenance",
+                "tags": ["regression"],
+            },
+            headers=author_headers,
+        )
+        assert created.status_code == 200, created.text
+        post_id = str(created.json().get("id", ""))
+        comment = client.post(
+            "/api/client/feed/comment/create",
+            json={"post_id": post_id, "content": "count me once", "client_id": f"reconcile-{suffix}"},
+            headers=liker_headers,
+        )
+        assert comment.status_code == 200, comment.text
+        comment_id = str(comment.json().get("id", ""))
+        assert client.post("/api/client/feed/like", json={"post_id": post_id, "liked": True}, headers=liker_headers).status_code == 200
+        assert client.post("/api/client/feed/comment/like", json={"comment_id": comment_id, "liked": True}, headers=author_headers).status_code == 200
+
+        raw_post_id = int(post_id.replace("p-", ""))
+        raw_comment_id = int(comment_id.replace("c-", ""))
+        with SessionLocal() as db:
+            post = db.get(Post, raw_post_id)
+            db_comment = db.get(Comment, raw_comment_id)
+            assert post is not None
+            assert db_comment is not None
+            post.likes_count = 91
+            post.comments_count = 47
+            db_comment.likes_count = 33
+            db.add(post)
+            db.add(db_comment)
+            db.commit()
+
+        admin_username, admin_password = _admin_credentials()
+        admin_login = client.post(
+            "/api/admin/auth/login",
+            json={"username": admin_username, "password": admin_password},
+        )
+        assert admin_login.status_code == 200, admin_login.text
+        admin_headers = {"Authorization": f"Bearer {admin_login.json()['access_token']}"}
+
+        repair = client.post("/api/admin/maintenance/reconcile-interaction-counts", headers=admin_headers)
+        assert repair.status_code == 200, repair.text
+        payload = repair.json()
+        assert payload.get("fixed_post_likes", 0) >= 1
+        assert payload.get("fixed_post_comments", 0) >= 1
+        assert payload.get("fixed_comment_likes", 0) >= 1
+
+        with SessionLocal() as db:
+            post = db.get(Post, raw_post_id)
+            db_comment = db.get(Comment, raw_comment_id)
+            assert post is not None
+            assert db_comment is not None
+            assert post.likes_count == 1
+            assert post.comments_count == 1
+            assert db_comment.likes_count == 1
+
+        second_repair = client.post("/api/admin/maintenance/reconcile-interaction-counts", headers=admin_headers)
+        assert second_repair.status_code == 200, second_repair.text
+        second_payload = second_repair.json()
+        assert second_payload.get("fixed_post_likes") == 0
+        assert second_payload.get("fixed_post_comments") == 0
+        assert second_payload.get("fixed_comment_likes") == 0
+
+
+def test_knowledge_answer_uses_extractive_answer_for_short_keyword(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    doc_path = tmp_path / "webvpn.md"
+    doc_path.write_text(
+        "河北大学图书馆校外访问资料：校外访问电子资源时，先登录 WEBVPN，再进入图书馆电子资源页面。"
+        "论文检索、数据库访问和文献传递不要依赖群内旧链接。",
+        encoding="utf-8",
+    )
+    with SessionLocal() as db:
+        next_doc_id = int(db.scalar(select(func.max(KnowledgeDocument.id))) or 0) + 1
+        db.add(
+            KnowledgeDocument(
+                id=next_doc_id,
+                kb_id=1,
+                file_name=f"pytest-webvpn-{uuid4().hex[:8]}.md",
+                file_ext="md",
+                file_size=doc_path.stat().st_size,
+                storage_path=str(doc_path),
+                mime_type="text/markdown",
+                status="indexed",
+                chunk_count=1,
+                error_message="",
+                uploaded_by=1,
+            )
+        )
+        db.commit()
+    knowledge_cache_service.rebuild_chunks()
+
+    async def unexpected_generate(query: str, contexts: list[str]) -> tuple[str, str]:
+        raise AssertionError("short keyword questions should not wait for the external QA model")
+
+    monkeypatch.setattr(qa_provider, "generate", unexpected_generate)
+
+    with TestClient(app) as client:
+        login = _client_login(client, username="zhaoyi")
+        headers = {"Authorization": f"Bearer {login['access_token']}"}
+        response = client.post(
+            "/api/client/knowledge/ask",
+            json={"query": "WEBVPN", "history": []},
+            headers=headers,
+        )
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        answer = str(payload.get("answer", ""))
+        assert "WEBVPN" in answer
+        assert "图书馆" in answer
+        assert "刷赞风险" not in answer
+        assert payload.get("citations")
+
+        response = client.post(
+            "/api/client/knowledge/ask",
+            json={"query": "WEBVPN 怎么使用", "history": []},
+            headers=headers,
+        )
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        answer = str(payload.get("answer", ""))
+        assert "WEBVPN" in answer
+        assert payload.get("citations")
+
+    cleaned = rag_pipeline._build_extractive_answer(
+        "WEBVPN",
+        [
+            "# 校园论坛录用：校外查文献先确认 WEBVPN｜入口版 - 帖子编号：p-875",
+            "5月18日学习提醒：校外访问校内资源时，先确认统一认证和 WEBVPN 是否可用，再进入图书馆电子资源。 #HBU真实数据 #河北大学 #WEBVPN",
+            "河同学：图书馆和WEBVPN这两块确实应该放在一起看，查文献会顺很多。",
+        ],
+    )
+    assert "校园论坛录用" not in cleaned
+    assert "月18日" not in cleaned
+    assert "#HBU真实数据" not in cleaned
+    assert "河同学" not in cleaned
+    assert "WEBVPN" in cleaned
 
 
 def test_admin_login_rate_limit() -> None:
@@ -1154,6 +1658,152 @@ def test_evolution_sync_is_persistent_and_non_duplicating() -> None:
         assert len(reviews_after_repeat.json().get("items") or []) == review_count_after
 
 
+def test_admin_can_repair_missing_adoptions_and_see_evolution_overview() -> None:
+    with TestClient(app) as client:
+        suffix = uuid4().hex[:8]
+        author = client.post(
+            "/api/client/auth/register",
+            json={"username": f"repair_author_{suffix}", "display_name": "repair author", "password": "demo123"},
+        )
+        commenter = client.post(
+            "/api/client/auth/register",
+            json={"username": f"repair_commenter_{suffix}", "display_name": "repair commenter", "password": "demo123"},
+        )
+        assert author.status_code == 200, author.text
+        assert commenter.status_code == 200, commenter.text
+        author_headers = {"Authorization": f"Bearer {author.json()['access_token']}"}
+        commenter_headers = {"Authorization": f"Bearer {commenter.json()['access_token']}"}
+        _bind_wechat_for_test(client, author_headers, "repair-author")
+        _bind_wechat_for_test(client, commenter_headers, "repair-commenter")
+
+        post = client.post(
+            "/api/client/feed/post/create",
+            json={
+                "category": "study",
+                "title": f"missing adoption repair {suffix}",
+                "content": "A migrated adopted post should regain its adoption audit row.",
+                "tags": ["regression"],
+            },
+            headers=author_headers,
+        )
+        assert post.status_code == 200, post.text
+        post_id = str(post.json().get("id", ""))
+        comment = client.post(
+            "/api/client/feed/comment/create",
+            json={"post_id": post_id, "content": "This is the answer that should be restored.", "client_id": f"repair-{suffix}"},
+            headers=commenter_headers,
+        )
+        assert comment.status_code == 200, comment.text
+
+        raw_post_id = int(post_id.replace("p-", ""))
+        with SessionLocal() as db:
+            row = db.get(Post, raw_post_id)
+            assert row is not None
+            row.adopted = True
+            db.add(row)
+            orphan_post_id = int(db.scalar(select(func.max(Post.id))) or 0) + 1
+            db.add(
+                Post(
+                    id=orphan_post_id,
+                    author_id=int(row.author_id),
+                    category="study",
+                    title=f"orphan adopted flag {suffix}",
+                    content="This migrated row has no comments and should not stay adopted.",
+                    tags_json=json.dumps(["regression"], ensure_ascii=False),
+                    likes_count=0,
+                    comments_count=0,
+                    adopted=True,
+                    status="published",
+                    created_at=datetime.now(tz=timezone.utc),
+                )
+            )
+            db.commit()
+            assert db.scalar(select(func.count()).select_from(PostAdoption).where(PostAdoption.post_id == raw_post_id)) == 0
+
+        username, password = _admin_credentials()
+        login = client.post(
+            "/api/admin/auth/login",
+            json={"username": username, "password": password},
+            headers={"User-Agent": f"pytest-repair-{suffix}"},
+        )
+        assert login.status_code == 200, login.text
+        admin_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+        overview_before = client.get("/api/admin/rag/evolution/overview", headers=admin_headers)
+        assert overview_before.status_code == 200
+        assert int(overview_before.json().get("missing_adoption_records", 0)) >= 1
+
+        repair = client.post("/api/admin/feed/adoptions/repair?limit=1000", headers=admin_headers)
+        assert repair.status_code == 200, repair.text
+        assert int(repair.json().get("created_adoptions", 0)) >= 1
+        assert int(repair.json().get("cleared_orphan_adopted_flags", 0)) >= 1
+
+        adoptions = client.get("/api/admin/feed/adoptions", headers=admin_headers)
+        assert adoptions.status_code == 200
+        assert any(str(item.get("post_id")) == post_id for item in (adoptions.json().get("items") or []))
+        with SessionLocal() as db:
+            orphan_post = db.get(Post, orphan_post_id)
+            assert orphan_post is not None
+            assert bool(orphan_post.adopted) is False
+
+
+def test_admin_can_view_edit_reindex_and_delete_document_content(tmp_path: Path) -> None:
+    doc_path = tmp_path / "manual.md"
+    doc_path.write_text("# Original\n\nLibrary route notes.", encoding="utf-8")
+    with SessionLocal() as db:
+        next_doc_id = int(db.scalar(select(func.max(KnowledgeDocument.id))) or 0) + 1
+        db.add(
+            KnowledgeDocument(
+                id=next_doc_id,
+                kb_id=1,
+                file_name=f"pytest-manual-{uuid4().hex[:8]}.md",
+                file_ext="md",
+                file_size=doc_path.stat().st_size,
+                storage_path=str(doc_path),
+                mime_type="text/markdown",
+                status="indexed",
+                chunk_count=1,
+                error_message="",
+                uploaded_by=1,
+            )
+        )
+        db.commit()
+
+    with TestClient(app) as client:
+        username, password = _admin_credentials()
+        login = client.post(
+            "/api/admin/auth/login",
+            json={"username": username, "password": password},
+            headers={"User-Agent": f"pytest-doc-editor-{uuid4().hex}"},
+        )
+        assert login.status_code == 200, login.text
+        admin_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+        content = client.get(f"/api/admin/documents/{next_doc_id}/content", headers=admin_headers)
+        assert content.status_code == 200, content.text
+        assert "Library route notes" in content.json().get("content", "")
+
+        updated_text = "# Updated\n\n河北大学图书馆 WEBVPN 访问路线已人工复核。"
+        update = client.put(
+            f"/api/admin/documents/{next_doc_id}/content",
+            json={"content": updated_text, "reindex": True},
+            headers=admin_headers,
+        )
+        assert update.status_code == 200, update.text
+        assert "reindexed" in update.json().get("message", "")
+        assert updated_text in doc_path.read_text(encoding="utf-8")
+
+        refreshed = client.get(f"/api/admin/documents/{next_doc_id}/content", headers=admin_headers)
+        assert refreshed.status_code == 200
+        assert "人工复核" in refreshed.json().get("content", "")
+
+        delete = client.delete(f"/api/admin/documents/{next_doc_id}", headers=admin_headers)
+        assert delete.status_code == 200, delete.text
+        assert not doc_path.exists()
+        with SessionLocal() as db:
+            assert db.get(KnowledgeDocument, next_doc_id) is None
+
+
 def test_password_hashing_supports_legacy_rows() -> None:
     legacy_salt = "legacysalt"
     legacy_digest = hashlib.sha256(f"{legacy_salt}:demo123".encode("utf-8")).hexdigest()
@@ -1190,9 +1840,9 @@ def test_document_upload_service_rejects_binary_and_uses_private_storage(tmp_pat
 
     with pytest.raises(ValueError, match="document_format_not_supported"):
         document_upload_service.save_document(
-            content=b"%PDF-1.7",
-            file_name="report.pdf",
-            mime_type="application/pdf",
+            content=b"MZ",
+            file_name="tool.exe",
+            mime_type="application/octet-stream",
         )
 
     with pytest.raises(ValueError, match="document_encoding_not_supported"):
@@ -1208,6 +1858,134 @@ def test_document_upload_service_rejects_binary_and_uses_private_storage(tmp_pat
             file_name="huge.txt",
             mime_type="text/plain",
         )
+
+
+def test_document_upload_service_normalizes_common_documents_to_editable_text(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    private_root = tmp_path / "kb_documents"
+    private_root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(document_upload_service, "root", private_root)
+
+    docx_content = _zip_bytes(
+        {
+            "word/document.xml": (
+                '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                "<w:body><w:p><w:r><w:t>Hebei University DOCX knowledge</w:t></w:r></w:p></w:body>"
+                "</w:document>"
+            )
+        }
+    )
+    xlsx_content = _zip_bytes(
+        {
+            "xl/sharedStrings.xml": (
+                '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                "<si><t>Course</t></si><si><t>Advanced Math</t></si></sst>"
+            ),
+            "xl/worksheets/sheet1.xml": (
+                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row>'
+                '<c t="s"><v>0</v></c><c t="s"><v>1</v></c>'
+                "</row></sheetData></worksheet>"
+            ),
+        }
+    )
+    pptx_content = _zip_bytes(
+        {
+            "ppt/slides/slide1.xml": (
+                '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+                'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+                "<p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>Defense Slide</a:t></a:r></a:p>"
+                "</p:txBody></p:sp></p:spTree></p:cSld></p:sld>"
+            )
+        }
+    )
+    cases = [
+        (
+            "notice.docx",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            docx_content,
+            "DOCX knowledge",
+        ),
+        ("notice.pdf", "application/pdf", _minimal_pdf_bytes("Campus PDF"), "Campus PDF"),
+        ("notice.html", "text/html", b"<html><body><h1>Campus HTML</h1></body></html>", "Campus HTML"),
+        (
+            "notice.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            xlsx_content,
+            "Advanced Math",
+        ),
+        (
+            "notice.pptx",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            pptx_content,
+            "Defense Slide",
+        ),
+    ]
+
+    for file_name, mime_type, content, expected_text in cases:
+        saved = document_upload_service.save_document(content=content, file_name=file_name, mime_type=mime_type)
+        stored_path = Path(saved["storage_path"])
+        stored_text = stored_path.read_text(encoding="utf-8")
+        assert saved["file_ext"] == "md"
+        assert saved["mime_type"] == "text/markdown"
+        assert bytes(saved["ingest_content"]) == stored_path.read_bytes()
+        assert expected_text in stored_text
+        assert stored_path.parent == private_root.resolve()
+
+
+def test_document_parser_uses_vision_ocr_for_scanned_pdf(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "document_ocr_enabled", True)
+    monkeypatch.setattr(settings, "document_ocr_base_url", "https://ocr.example/v1")
+    monkeypatch.setattr(settings, "document_ocr_api_key", "ocr-key")
+    monkeypatch.setattr(settings, "document_ocr_model", "vision-ocr-model")
+    monkeypatch.setattr(settings, "document_ocr_timeout_seconds", 9)
+    monkeypatch.setattr(settings, "document_ocr_max_pages", 2)
+    monkeypatch.setattr(document_parser, "_parse_pdf_with_pypdf", lambda content: "")
+    monkeypatch.setattr(document_parser, "_parse_pdf_with_pymupdf", lambda content: "")
+    monkeypatch.setattr(document_parser, "_render_pdf_pages_for_ocr", lambda content: [("image/png", b"fake-page")])
+
+    captured: dict[str, object] = {}
+
+    def fake_post(self: httpx.Client, url: str, json: dict | None = None, headers: dict | None = None) -> httpx.Response:
+        captured["url"] = url
+        captured["json"] = json or {}
+        captured["headers"] = headers or {}
+        request = httpx.Request("POST", url)
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "河北大学 OCR 入库内容"}}]},
+            request=request,
+        )
+
+    monkeypatch.setattr(httpx.Client, "post", fake_post)
+
+    text = document_parser.parse_bytes(b"%PDF-1.4\nscanned", "pdf")
+
+    assert "河北大学 OCR 入库内容" in text
+    assert captured["url"] == "https://ocr.example/v1/chat/completions"
+    payload = captured["json"]
+    assert isinstance(payload, dict)
+    assert payload.get("model") == "vision-ocr-model"
+    content_parts = payload["messages"][1]["content"]
+    assert any(part.get("type") == "image_url" and "data:image/png;base64," in part["image_url"]["url"] for part in content_parts)
+    assert captured["headers"] == {"Authorization": "Bearer ocr-key"}
+
+
+def test_document_upload_service_normalizes_image_ocr_to_knowledge_markdown(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    private_root = tmp_path / "kb_documents"
+    private_root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(document_upload_service, "root", private_root)
+    monkeypatch.setattr(document_parser, "_ocr_images_with_model", lambda images, source_label: "OCR image knowledge")
+
+    saved = document_upload_service.save_document(
+        content=b"\x89PNG\r\n\x1a\n" + b"image-bytes",
+        file_name="campus-map.png",
+        mime_type="image/png",
+    )
+
+    stored_path = Path(saved["storage_path"])
+    assert saved["file_ext"] == "md"
+    assert saved["mime_type"] == "text/markdown"
+    assert "OCR image knowledge" in stored_path.read_text(encoding="utf-8")
+    assert bytes(saved["ingest_content"]) == stored_path.read_bytes()
 
 
 def test_wechat_service_does_not_fallback_to_mock_when_configured_exchange_fails(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1254,3 +2032,35 @@ def test_admin_client_debug_token_endpoint_issues_client_token() -> None:
         )
         assert me.status_code == 200
         assert int(me.json().get("user_id", 0)) == int(payload["user_id"])
+
+
+def test_devtools_reports_evolution_ai_review_reusing_qa(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "qa_base_url", "https://qa.example/v1")
+    monkeypatch.setattr(settings, "qa_api_key", "qa-key")
+    monkeypatch.setattr(settings, "qa_model", "qa-review-model")
+    monkeypatch.setattr(settings, "evolution_ai_review_enabled", True)
+    monkeypatch.setattr(settings, "evolution_ai_review_provider", "qa_reuse")
+    monkeypatch.setattr(settings, "evolution_ai_review_base_url", "")
+    monkeypatch.setattr(settings, "evolution_ai_review_api_key", "")
+    monkeypatch.setattr(settings, "evolution_ai_review_model", "")
+
+    with TestClient(app) as client:
+        username, password = _admin_credentials()
+        login = client.post(
+            "/api/admin/auth/login",
+            json={"username": username, "password": password},
+            headers={"User-Agent": f"pytest-devtools-ai-review-{uuid4().hex}"},
+        )
+        assert login.status_code == 200
+        admin_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+        status = client.get("/api/admin/devtools/status", headers=admin_headers)
+        assert status.status_code == 200
+        assert status.json().get("evolution_ai_review_provider") == "qa_reuse"
+        assert status.json().get("evolution_ai_review_configured") is True
+
+        self_check = client.post("/api/admin/devtools/self-check", headers=admin_headers)
+        assert self_check.status_code == 200
+        rows = {item.get("name"): item for item in (self_check.json().get("items") or [])}
+        assert rows.get("evolution_ai_review_config", {}).get("passed") is True
+        assert rows.get("evolution_ai_review_config", {}).get("detail") == "ai_review_reuse_qa_ready"

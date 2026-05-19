@@ -439,6 +439,33 @@ code {
   color: var(--brand-strong);
 }
 
+.config-group-notice {
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(192, 212, 236, 0.95);
+  background: rgba(246, 250, 255, 0.92);
+  color: var(--ink-700);
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+.config-group-notice.is-ok {
+  color: #1f6f4f;
+  border-color: rgba(183, 226, 206, 0.98);
+  background: rgba(230, 246, 239, 0.72);
+}
+
+.config-group-notice.is-warn {
+  color: #8a4a24;
+  border-color: rgba(246, 203, 126, 0.92);
+  background: rgba(255, 247, 232, 0.82);
+}
+
+.config-group-notice.is-muted {
+  color: var(--ink-700);
+  background: rgba(242, 246, 252, 0.82);
+}
+
 .config-fields {
   display: grid;
   gap: 12px;
@@ -588,6 +615,12 @@ textarea {
   border-color: rgba(241, 188, 199, 0.98);
 }
 
+.status-pill.warn {
+  color: #8a5a14;
+  background: rgba(255, 247, 225, 0.98);
+  border-color: rgba(238, 207, 142, 0.98);
+}
+
 .table-meta {
   display: flex;
   justify-content: space-between;
@@ -713,6 +746,34 @@ textarea {
   white-space: pre-wrap;
   font-size: 13px;
   line-height: 1.65;
+}
+
+.doc-editor-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.doc-content-editor {
+  width: 100%;
+  min-height: 420px;
+  resize: vertical;
+  padding: 16px;
+  border: 1px solid rgba(189, 209, 233, 0.98);
+  border-radius: 18px;
+  background: rgba(250, 252, 255, 0.96);
+  color: var(--ink-900);
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .login-shell {

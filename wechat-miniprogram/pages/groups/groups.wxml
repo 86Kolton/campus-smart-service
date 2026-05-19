@@ -11,12 +11,15 @@
   <view class="surface-card">
     <view class="section-title groups-section-title">讨论组</view>
     <view class="groups-grid">
-      <view wx:for="{{groups}}" wx:key="id" class="group-card" data-query="{{item.query}}" data-title="{{item.title}}" bindtap="onTapGroup">
-        <view class="group-card-title">{{item.title}}</view>
-        <view class="group-card-meta">{{item.members}} 人 · 在线 {{item.online}}</view>
-        <view class="subpage-chip-row">
-          <view wx:for="{{item.tags}}" wx:key="*this" class="chip">{{item}}</view>
+      <view wx:for="{{groups}}" wx:key="id" class="group-card" data-id="{{item.id}}" bindtap="onTapGroup">
+        <view class="group-card-main">
+          <view class="group-card-title">{{item.title}}</view>
+          <view class="group-card-meta">{{item.members}} 人 · 在线 {{item.online}}</view>
+          <view class="subpage-chip-row">
+            <view wx:for="{{item.tags}}" wx:key="*this" class="chip">{{item}}</view>
+          </view>
         </view>
+        <button class="group-join-btn" data-id="{{item.id}}" catchtap="joinGroup">加入小组</button>
       </view>
     </view>
   </view>

@@ -73,6 +73,16 @@ def _format_clock(dt: datetime | None) -> str:
     return dt.astimezone().strftime("%m-%d %H:%M")
 
 
+def _sort_timestamp(value: str) -> float:
+    try:
+        parsed = datetime.fromisoformat(str(value or ""))
+    except ValueError:
+        return 0.0
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.timestamp()
+
+
 def _normalize_reward(raw: str) -> str:
     text = str(raw or "").strip() or "5"
     return text if text.startswith("￥") else f"￥{text}"
@@ -158,7 +168,7 @@ class ErrandService:
             rows = db.execute(
                 select(ErrandTask, User)
                 .join(User, User.id == ErrandTask.publisher_id)
-                .order_by(ErrandTask.id.desc())
+                .order_by(ErrandTask.created_at.desc(), ErrandTask.id.desc())
             ).all()
             runner_ids = [int(row[0].runner_id) for row in rows if row[0].runner_id]
             runner_map = {}
@@ -179,7 +189,7 @@ class ErrandService:
             items,
             key=lambda item: (
                 STATUS_ORDER.get(str(item["status"]), 99),
-                -int(str(item["id"]).replace("e-", "") or 0),
+                -_sort_timestamp(str(item.get("created_at") or "")),
             ),
         )
 
@@ -189,7 +199,7 @@ class ErrandService:
                 select(ErrandTask, User)
                 .join(User, User.id == ErrandTask.publisher_id)
                 .where(or_(ErrandTask.publisher_id == int(viewer_user_id), ErrandTask.runner_id == int(viewer_user_id)))
-                .order_by(ErrandTask.id.desc())
+                .order_by(ErrandTask.created_at.desc(), ErrandTask.id.desc())
             ).all()
             runner_ids = [int(row[0].runner_id) for row in rows if row[0].runner_id]
             runner_map = {}

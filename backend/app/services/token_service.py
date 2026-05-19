@@ -102,6 +102,35 @@ class TokenService:
             )
             db.commit()
 
+    def revoke_client_session_before(
+        self,
+        user_id: int,
+        session_type: str,
+        before: datetime,
+        expires_at: datetime,
+    ) -> None:
+        marker = f"user:{int(user_id)}:{str(session_type or 'app')}:before"
+        with SessionLocal() as db:
+            exists = db.execute(
+                select(TokenRevocation)
+                .where(TokenRevocation.jti == marker)
+            ).scalar_one_or_none()
+            if exists:
+                exists.revoked_at = before
+                exists.expires_at = expires_at
+            else:
+                next_id = int(db.scalar(select(TokenRevocation.id).order_by(TokenRevocation.id.desc()).limit(1)) or 0) + 1
+                db.add(
+                    TokenRevocation(
+                        id=next_id,
+                        jti=marker,
+                        token_type=f"client:{str(session_type or 'app')}",
+                        revoked_at=before,
+                        expires_at=expires_at,
+                    )
+                )
+            db.commit()
+
     def is_token_revoked(self, jti: str) -> bool:
         with SessionLocal() as db:
             row = db.execute(
@@ -114,6 +143,40 @@ class TokenService:
             if expires_at and expires_at < _utcnow():
                 return False
             return True
+
+    def is_client_access_token_revoked(
+        self,
+        jti: str,
+        user_id: int,
+        session_type: str,
+        issued_at: int | float | datetime | None = None,
+    ) -> bool:
+        if self.is_token_revoked(jti):
+            return True
+
+        if not user_id:
+            return False
+        issued = _to_utc_aware(issued_at)
+        if issued is None and isinstance(issued_at, (int, float)):
+            issued = datetime.fromtimestamp(float(issued_at), tz=timezone.utc)
+        if issued is None:
+            return False
+
+        marker = f"user:{int(user_id)}:{str(session_type or 'app')}:before"
+        with SessionLocal() as db:
+            row = db.execute(
+                select(TokenRevocation)
+                .where(TokenRevocation.jti == marker)
+            ).scalar_one_or_none()
+            if not row:
+                return False
+            expires_at = _to_utc_aware(row.expires_at)
+            if expires_at and expires_at < _utcnow():
+                return False
+            revoked_at = _to_utc_aware(row.revoked_at)
+            if revoked_at is None:
+                return False
+            return issued <= revoked_at
 
 
 token_service = TokenService()

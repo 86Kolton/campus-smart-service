@@ -1,0 +1,32 @@
+<view class="page-wrap page-wrap-sub group-detail-page">
+  <view class="surface-card group-detail-hero">
+    <view class="subpage-brow">校园集市 · 小组详情</view>
+    <view class="group-detail-title">{{group.title}}</view>
+    <view class="group-detail-sub">已进入单独小组页，帖子、成员和发布入口集中展示，不再挤在小组列表下方。</view>
+    <view class="group-detail-meta">
+      <view>{{group.members}} 人</view>
+      <view>在线 {{group.online}}</view>
+      <view wx:if="{{joined}}">已加入</view>
+    </view>
+    <view class="subpage-chip-row">
+      <view wx:for="{{group.tags}}" wx:key="*this" class="chip">#{{item}}</view>
+    </view>
+  </view>
+
+  <view class="surface-card">
+    <view class="section-title groups-section-title">{{group.title}} · 匹配帖子</view>
+    <view wx:if="{{loading}}" class="empty">正在加载小组帖子...</view>
+    <view wx:if="{{error}}" class="empty">{{error}}</view>
+    <view wx:for="{{posts}}" wx:key="id" class="group-post" data-id="{{item.id}}" data-title="{{item.title}}" bindtap="openPost">
+      <view class="group-post-title">{{item.title}}</view>
+      <view class="group-post-snippet">{{item.snippet}}</view>
+      <view class="group-post-meta">{{item.meta}} · 点赞 {{item.likes}} · 评论 {{item.comments}}</view>
+      <view class="group-post-link">进入原帖</view>
+    </view>
+    <view wx:if="{{!loading && !error && !posts.length}}" class="empty">当前小组暂无帖子，点击右下角 + 发起第一条讨论。</view>
+  </view>
+
+  <button class="global-fab group-detail-fab" bindtap="openComposer" aria-label="发布跨校帖子">
+    <text class="global-fab-plus">+</text>
+  </button>
+</view>

@@ -23,7 +23,7 @@
         <view class="step-index">3</view>
         <view class="step-copy">
           <view class="step-title">粘贴后完成互通登录</view>
-          <view class="step-sub">登录成功后，网页端会直接进入与你现在相同的账号。</view>
+          <view class="step-sub">登录成功后，网页端会直接进入与你现在相同的账号；满 1 小时会自动失效，需要重新生成登录码。</view>
         </view>
       </view>
     </view>
@@ -33,7 +33,7 @@
 
     <view wx:if="{{code}}" class="code-panel">
       <view class="code-value">{{code}}</view>
-      <view class="code-meta">5 分钟内有效，仅可使用一次</view>
+      <view class="code-meta">5 分钟内有效，仅可使用一次；网页登录后 1 小时自动失效</view>
       <view wx:if="{{expiresAt}}" class="code-meta">过期时间：{{expiresAt}}</view>
     </view>
 

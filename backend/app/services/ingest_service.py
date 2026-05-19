@@ -40,6 +40,7 @@ class IngestService:
             return 0
 
         document_service.update_status(document_id, "embedding")
+        qdrant_service.delete_document_chunks(kb_id=kb_id, document_id=document_id)
         rows = []
         source_meta = self._resolve_source_meta(text, kb_id)
         for idx, chunk in enumerate(chunks, start=1):

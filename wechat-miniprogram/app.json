@@ -9,6 +9,7 @@
     "pages/edu/edu",
     "pages/topic/topic",
     "pages/groups/groups",
+    "pages/group-detail/group-detail",
     "pages/message-list/message-list",
     "pages/profile-list/profile-list",
     "pages/post/post",

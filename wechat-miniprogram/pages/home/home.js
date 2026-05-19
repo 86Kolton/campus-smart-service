@@ -1,4 +1,5 @@
 const { apiRequest } = require("../../utils/request");
+const { buildApiUrl } = require("../../config/env");
 const {
   buildGreetingName,
   formatCompactCount,
@@ -31,6 +32,12 @@ const FEED_FILTERS = [
   { id: "study", label: "自习" },
   { id: "academic", label: "教务" }
 ];
+
+function normalizeImageUrl(path) {
+  const text = String(path || "").trim();
+  if (!text) return "";
+  return /^https?:\/\//i.test(text) ? text : buildApiUrl(text);
+}
 
 const FALLBACK_FEED = [
   {
@@ -105,6 +112,7 @@ function normalizeFeedItem(item = {}, index = 0) {
     time: String(item.time || "刚刚"),
     title: String(item.title || "校园帖子"),
     content: String(item.content || item.snippet || ""),
+    imageUrl: normalizeImageUrl(item.image_url || item.imageUrl || ""),
     tags,
     tagText: tags.join(" "),
     likes,
@@ -131,8 +139,19 @@ function buildFallbackFeed() {
 }
 
 function isValidationArtifact(item = {}) {
+  const compact = (value) => String(value || "")
+    .normalize("NFKC")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s\W_]+/g, "");
   const haystack = [item.title, item.content, item.author, item.tagText].join(" ");
-  return /(验证贴\s*[ab]?|图文验证贴|验证跑腿|domain-current|local-current|smoke_[ab]_)/i.test(haystack);
+  if (/(验证贴\s*[ab]?|图文验证贴|验证跑腿|domain-current|local-current|smoke_[ab]_|smoke post)/i.test(haystack)) {
+    return true;
+  }
+  const placeholders = new Set(["1", "11", "111", "test", "tests", "ceshi", "\u6d4b\u8bd5", "\u6d4b\u8bd5\u5e16", "\u6d4b\u8bd5\u95ee\u9898"]);
+  const title = compact(item.title);
+  const content = compact(item.content);
+  return placeholders.has(title) && (placeholders.has(content) || content.length <= 2);
 }
 
 function sanitizeFeed(items = []) {
@@ -375,6 +394,12 @@ Page({
 
   onTapHotPost(event) {
     this.openPost(event);
+  },
+
+  previewFeedImage(event) {
+    const url = String(event.currentTarget.dataset.url || "").trim();
+    if (!url) return;
+    wx.previewImage({ current: url, urls: [url] });
   },
 
   async toggleLike(event) {

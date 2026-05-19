@@ -1,4 +1,4 @@
-const { apiRequest } = require("../../utils/request");
+const { apiRequest, getTokenInfo, isWechatBindRequiredError } = require("../../utils/request");
 
 const FILTER_OPTIONS = [
   { id: "all", label: "全部" },
@@ -24,6 +24,48 @@ function sortTasks(tasks = []) {
     }
     return new Date(String(right.created_at || "")).getTime() - new Date(String(left.created_at || "")).getTime();
   });
+}
+
+function mergeTaskLists(poolTasks = [], myTasks = []) {
+  const merged = new Map();
+  [...poolTasks, ...myTasks].forEach((item) => {
+    if (!item || !item.id) {
+      return;
+    }
+    const id = String(item.id);
+    const previous = merged.get(id);
+    merged.set(id, previous ? { ...previous, ...item } : item);
+  });
+  return sortTasks(Array.from(merged.values()));
+}
+
+function normalizeTaskFlags(item = {}, userId = 0, forceRunner = false) {
+  const runnerId = Number(item.runner_id || item.runnerId || 0);
+  const publisherId = Number(item.publisher_id || item.publisherId || 0);
+  const isRunner = Boolean(forceRunner || item.is_runner || item.isRunner || (userId > 0 && runnerId === userId));
+  const isPublisher = Boolean(item.is_publisher || item.isPublisher || (userId > 0 && publisherId === userId));
+  return {
+    ...item,
+    is_runner: isRunner,
+    isRunner,
+    is_publisher: isPublisher,
+    isPublisher
+  };
+}
+
+function normalizeTaskList(items = [], userId = 0) {
+  return (Array.isArray(items) ? items : []).map((item) => normalizeTaskFlags(item, userId));
+}
+
+function normalizeActionTask(item = {}, action = "", taskId = "", userId = 0) {
+  if (!item || typeof item !== "object") {
+    return null;
+  }
+  const next = normalizeTaskFlags({ id: taskId, ...item }, userId, ["claim", "delivered", "confirm"].includes(action));
+  if (action === "claim" && !["inprogress", "waiting_confirm"].includes(String(next.status || ""))) {
+    next.status = "inprogress";
+  }
+  return next;
 }
 
 function filterTasks(tasks = [], filter = "all", status = "all") {
@@ -65,6 +107,8 @@ function getEmptyText(status = "all") {
 }
 
 Page({
+  pendingRunnerTaskIds: null,
+
   data: {
     activeFilter: "all",
     activeStatus: "all",
@@ -84,6 +128,7 @@ Page({
   },
 
   onLoad(query) {
+    this.pendingRunnerTaskIds = new Set();
     this.setData({ focusId: String(query.focus || "") });
   },
 
@@ -97,14 +142,70 @@ Page({
     this.loadTasks(this.data.focusId).finally(() => wx.stopPullDownRefresh());
   },
 
-  async loadTasks(focusId = "") {
+  getPendingRunnerTasks() {
+    const pendingIds = this.pendingRunnerTaskIds || new Set();
+    return (this.data.rawTasks || []).filter((item) => {
+      const status = String(item.status || "");
+      return pendingIds.has(String(item.id || "")) && isRunnerTask(item) && ["inprogress", "waiting_confirm", "done"].includes(status);
+    });
+  },
+
+  markPendingRunnerTask(taskId = "") {
+    const id = String(taskId || "").trim();
+    if (!id) return;
+    if (!this.pendingRunnerTaskIds) {
+      this.pendingRunnerTaskIds = new Set();
+    }
+    this.pendingRunnerTaskIds.add(id);
+  },
+
+  clearConfirmedPendingTasks(items = []) {
+    if (!this.pendingRunnerTaskIds || !this.pendingRunnerTaskIds.size) {
+      return;
+    }
+    (items || []).forEach((item) => {
+      if (isRunnerTask(item)) {
+        this.pendingRunnerTaskIds.delete(String(item.id || ""));
+      }
+    });
+  },
+
+  async loadTasks(focusId = "", options = {}) {
     this.setData({ loading: true, error: "" });
     try {
-      const data = await apiRequest({ url: "/api/client/errands", method: "GET" });
-      const rawTasks = sortTasks(Array.isArray(data && data.items) ? data.items : []);
-      this.setData({ rawTasks, loading: false }, () => this.refreshView(focusId));
+      const [poolResult, myResult] = await Promise.allSettled([
+        apiRequest({ url: "/api/client/errands", method: "GET" }),
+        apiRequest({ url: "/api/client/errands/my", method: "GET" })
+      ]);
+      if (poolResult.status === "rejected" && myResult.status === "rejected") {
+        throw poolResult.reason || myResult.reason;
+      }
+      const poolData = poolResult.status === "fulfilled" ? poolResult.value : null;
+      const myData = myResult.status === "fulfilled" ? myResult.value : null;
+      const userId = Number(getTokenInfo().userId || 0);
+      const poolItems = normalizeTaskList(poolData && poolData.items, userId);
+      const myItems = normalizeTaskList(myData && myData.items, userId);
+      if (myResult.status === "fulfilled") {
+        this.clearConfirmedPendingTasks(myItems);
+      }
+      const rawTasks = mergeTaskLists(
+        poolItems,
+        options.preserveMyTasks ? mergeTaskLists(this.getPendingRunnerTasks(), myItems) : myItems
+      );
+      const fallbackTasks = rawTasks.length ? rawTasks : this.data.rawTasks;
+      const error = myResult.status === "rejected"
+        ? (isWechatBindRequiredError(myResult.reason) ? "请先完成微信登录/绑定后查看我的接单" : ((myResult.reason && myResult.reason.message) || "我的接单暂时加载失败"))
+        : "";
+      this.setData({ rawTasks: fallbackTasks, loading: false, error }, () => this.refreshView(focusId));
     } catch (error) {
-      this.setData({ rawTasks: [], tasks: [], selectedTask: null, loading: false, error: error && error.message || "加载跑腿任务失败" });
+      const keepExisting = Array.isArray(this.data.rawTasks) && this.data.rawTasks.length > 0;
+      this.setData({
+        rawTasks: keepExisting ? this.data.rawTasks : [],
+        tasks: keepExisting ? this.data.tasks : [],
+        selectedTask: keepExisting ? this.data.selectedTask : null,
+        loading: false,
+        error: isWechatBindRequiredError(error) ? "请先完成微信登录/绑定后查看我的接单" : (error && error.message || "加载跑腿任务失败")
+      });
     }
   },
 
@@ -166,10 +267,22 @@ Page({
         method: "POST",
         data: { task_id: taskId, action }
       });
-      await this.loadTasks(taskId);
+      const nextStatus = action === "confirm"
+        ? "done"
+        : (action === "claim" || action === "delivered" ? "inprogress" : (action === "cancel" ? "open" : this.data.activeStatus));
+      const userId = Number(getTokenInfo().userId || 0);
+      const actionItem = normalizeActionTask(result && result.item, action, taskId, userId);
+      if (["claim", "delivered", "confirm"].includes(action) && actionItem) {
+        this.markPendingRunnerTask(actionItem.id || taskId);
+      }
+      const optimisticTasks = actionItem
+        ? mergeTaskLists(this.data.rawTasks, [actionItem])
+        : this.data.rawTasks;
+      this.setData({ rawTasks: optimisticTasks, activeStatus: nextStatus }, () => this.refreshView(taskId));
+      await this.loadTasks(taskId, { preserveMyTasks: true });
       wx.showToast({ title: result && result.message || "任务状态已更新", icon: "none" });
     } catch (error) {
-      wx.showToast({ title: error && error.message || "操作失败", icon: "none" });
+      wx.showToast({ title: isWechatBindRequiredError(error) ? "请先完成微信登录/绑定后再接单" : (error && error.message || "操作失败"), icon: "none" });
     }
   }
 });

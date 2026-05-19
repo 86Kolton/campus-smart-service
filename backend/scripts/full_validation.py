@@ -552,6 +552,7 @@ def validation_flow(
                 ("tasks", "GET", "/api/admin/tasks"),
                 ("evolution-sync", "POST", "/api/admin/rag/evolution/sync-high-quality-posts?kb_id=1&min_likes=999&min_comments=999&limit=1"),
                 ("maintenance-cleanup", "POST", "/api/admin/maintenance/cleanup-stale-posts?days=7"),
+                ("maintenance-reconcile-counts", "POST", "/api/admin/maintenance/reconcile-interaction-counts"),
             ]:
                 try:
                     resp = client.get(path, headers=admin_headers) if method == "GET" else client.post(path, headers=admin_headers)

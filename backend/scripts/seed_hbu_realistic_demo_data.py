@@ -34,6 +34,7 @@ from app.models.post_save import PostSave  # noqa: E402
 from app.models.recent_search import RecentSearchKeyword  # noqa: E402
 from app.models.user import User  # noqa: E402
 from app.services.bootstrap_service import bootstrap_database  # noqa: E402
+from app.services.post_service import is_public_feed_artifact  # noqa: E402
 from app.services.user_service import user_service  # noqa: E402
 
 
@@ -45,7 +46,13 @@ DEFAULT_ERRANDS = 90
 MIN_PRIMARY_ROWS = 300
 MAX_PRIMARY_ROWS = 900
 CHINA_TZ = ZoneInfo("Asia/Shanghai")
-BASE_LOCAL_TIME = datetime(2026, 5, 18, 8, 0, tzinfo=CHINA_TZ)
+DEMO_NOW_UTC_TIME = datetime.now(timezone.utc).replace(microsecond=0)
+DEMO_NOW_LOCAL_TIME = DEMO_NOW_UTC_TIME.astimezone(CHINA_TZ)
+DEMO_LATEST_POST_TIME = DEMO_NOW_UTC_TIME - timedelta(minutes=12)
+DEMO_EARLIEST_POST_TIME = DEMO_LATEST_POST_TIME - timedelta(hours=18)
+DEMO_LATEST_TASK_TIME = DEMO_NOW_UTC_TIME - timedelta(minutes=8)
+DEMO_EARLIEST_TASK_TIME = DEMO_LATEST_TASK_TIME - timedelta(hours=12)
+BASE_LOCAL_TIME = DEMO_EARLIEST_POST_TIME
 
 
 @dataclass(frozen=True)
@@ -151,7 +158,7 @@ OFFICIAL_BLUEPRINTS = [
     {
         "category": "academic",
         "title": "学校办学规模适合怎么介绍",
-        "content": "河北大学是教育部与河北省人民政府部省合建高校，学校学科覆盖12大门类，公开简介中列有89个本科专业、18个一级学科博士点和44个一级学科硕士点。",
+        "content": "河北大学是教育部与河北省人民政府部省合建高校，学校学科覆盖12大门类。官网学校简介列有89个本科专业，信息公开网2024统计口径列有86个本科专业；涉及专业数量时建议说明统计口径并以当年公开信息为准。",
         "tags": ["#学校概况", "#学科专业", "#河北大学"],
     },
     {
@@ -324,17 +331,30 @@ def _next_id(db, model) -> int:
     return int(current or 0) + 1
 
 
+def _spread_time(index: int, total: int, start: datetime, end: datetime, second_step: int) -> datetime:
+    span_seconds = max(1, int((end - start).total_seconds()))
+    offset_seconds = int((index / max(1, total - 1)) * span_seconds)
+    return start + timedelta(seconds=offset_seconds + (index * second_step) % 60)
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _interaction_time(base_time: datetime, minutes: int) -> datetime:
+    latest = DEMO_NOW_UTC_TIME - timedelta(minutes=1)
+    value = _as_utc(base_time) + timedelta(minutes=minutes)
+    return value if value <= latest else latest
+
+
 def _seed_time(index: int, total: int) -> datetime:
-    latest_minutes = 14 * 60
-    minute = int((index / max(1, total - 1)) * latest_minutes)
-    second = (index * 17) % 60
-    return BASE_LOCAL_TIME + timedelta(minutes=minute, seconds=second)
+    return _spread_time(index, total, DEMO_EARLIEST_POST_TIME, DEMO_LATEST_POST_TIME, 17)
 
 
 def _task_time(index: int, total: int) -> datetime:
-    start = datetime(2026, 5, 18, 9, 0, tzinfo=CHINA_TZ)
-    minute = int((index / max(1, total - 1)) * (11 * 60))
-    return start + timedelta(minutes=minute, seconds=(index * 11) % 60)
+    return _spread_time(index, total, DEMO_EARLIEST_TASK_TIME, DEMO_LATEST_TASK_TIME, 11)
 
 
 def _reset_previous_seed(db) -> dict[str, int]:
@@ -622,7 +642,7 @@ def _insert_comments(db, posts: list[dict], user_map: dict[str, int], target_com
                     content=content,
                     status="visible",
                     likes_count=0,
-                    created_at=post["created_at"] + timedelta(minutes=8 + local_index * 9),
+                    created_at=_interaction_time(post["created_at"], 8 + local_index * 9),
                 )
             )
             comment_ids.append(comment_id)
@@ -678,7 +698,7 @@ def _insert_likes_saves_notifications(
                     id=next_like_id + liked_count,
                     post_id=post_id,
                     user_id=int(liker_id),
-                    created_at=post["created_at"] + timedelta(minutes=18 + len(actors)),
+                    created_at=_interaction_time(post["created_at"], 18 + len(actors)),
                 )
             )
             liked_count += 1
@@ -695,7 +715,7 @@ def _insert_likes_saves_notifications(
                 id=next_save_id + saved_count,
                 post_id=int(post["id"]),
                 user_id=int(viewer_id if offset < 48 else seed_user_ids[(offset + 3) % len(seed_user_ids)]),
-                created_at=post["created_at"] + timedelta(minutes=23),
+                created_at=_interaction_time(post["created_at"], 23),
             )
         )
         saved_count += 1
@@ -723,7 +743,7 @@ def _insert_likes_saves_notifications(
                     id=next_comment_like_id + comment_like_count,
                     comment_id=int(comment.id),
                     user_id=int(liker_id),
-                    created_at=comment.created_at + timedelta(minutes=12 + len(actors)),
+                    created_at=_interaction_time(comment.created_at, 12 + len(actors)),
                 )
             )
             comment_like_count += 1
@@ -745,7 +765,7 @@ def _insert_likes_saves_notifications(
                 source_user_id=int(actor_id),
                 content=f"帖子赞：{str(post['title'])[:48]}",
                 is_read=offset > 6,
-                created_at=post["created_at"] + timedelta(minutes=31),
+                created_at=_interaction_time(post["created_at"], 31),
             )
         )
         notification_count += 1
@@ -769,8 +789,8 @@ def _insert_recent_keywords(db) -> int:
                 id=next_recent_id + offset,
                 user_id=viewer_id,
                 keyword=keyword,
-                updated_at=BASE_LOCAL_TIME + timedelta(hours=13, minutes=offset),
-                created_at=BASE_LOCAL_TIME + timedelta(hours=13, minutes=offset),
+                updated_at=DEMO_LATEST_POST_TIME - timedelta(minutes=offset * 3),
+                created_at=DEMO_LATEST_POST_TIME - timedelta(minutes=offset * 3),
             )
         )
     return len(RECENT_KEYWORDS)
@@ -798,7 +818,10 @@ def _insert_errands(db, total_errands: int, user_map: dict[str, int]) -> list[in
     errand_ids: list[int] = []
     for offset in range(total_errands):
         created_at = _task_time(offset, total_errands)
-        status = statuses[offset % len(statuses)]
+        # Newest demo errands should be claimable, otherwise the default "待接单"
+        # view looks stale even after reseeding.
+        recency_rank = total_errands - 1 - offset
+        status = statuses[recency_rank % len(statuses)]
         publisher_id = seed_user_ids[offset % len(seed_user_ids)]
         runner_id = None
         accepted_at = None
@@ -809,13 +832,13 @@ def _insert_errands(db, total_errands: int, user_map: dict[str, int]) -> list[in
             runner_id = seed_user_ids[(offset + 11) % len(seed_user_ids)]
             if runner_id == publisher_id:
                 runner_id = seed_user_ids[(offset + 13) % len(seed_user_ids)]
-            accepted_at = created_at + timedelta(minutes=9)
+            accepted_at = _interaction_time(created_at, 9)
         if status in {"waiting_confirm", "done"}:
-            delivered_at = created_at + timedelta(minutes=37)
+            delivered_at = _interaction_time(created_at, 37)
         if status == "done":
-            confirmed_at = created_at + timedelta(minutes=58)
+            confirmed_at = _interaction_time(created_at, 58)
         if status == "canceled":
-            canceled_at = created_at + timedelta(minutes=17)
+            canceled_at = _interaction_time(created_at, 17)
 
         errand_id = next_errand_id + offset
         db.add(
@@ -862,6 +885,27 @@ def _summarize(db, user_map: dict[str, int], post_ids: list[int], errand_ids: li
     }
 
 
+def _hide_obvious_public_artifacts(db) -> int:
+    rows = (
+        db.execute(
+            select(Post, User)
+            .join(User, User.id == Post.author_id)
+            .where(Post.status == "published")
+        )
+        .all()
+    )
+    hidden = 0
+    for post, user in rows:
+        if str(user.username or "").startswith(SEED_PREFIX):
+            continue
+        if not is_public_feed_artifact(post, author_username=user.username, author_name=user_service.get_public_name(user)):
+            continue
+        post.status = "hidden"
+        db.add(post)
+        hidden += 1
+    return hidden
+
+
 def seed_hbu_realistic_demo_data(
     total_posts: int = DEFAULT_POSTS,
     total_comments: int = DEFAULT_COMMENTS,
@@ -873,6 +917,7 @@ def seed_hbu_realistic_demo_data(
 
     bootstrap_database()
     with SessionLocal() as db:
+        hidden_public_artifacts = _hide_obvious_public_artifacts(db)
         deleted = _reset_previous_seed(db)
         user_map = _insert_seed_users(db)
         primary_author_id = int(db.scalar(select(User.id).where(User.id == 1)) or 0) or None
@@ -886,9 +931,17 @@ def seed_hbu_realistic_demo_data(
 
         summary = _summarize(db, user_map=user_map, post_ids=post_ids, errand_ids=errand_ids)
         summary["deleted_previous_seed"] = deleted
+        summary["hidden_public_artifacts"] = hidden_public_artifacts
         summary["recent_keywords"] = recent_count
         summary.update(interaction_counts)
         summary["visible_date_policy"] = "no explicit date in generated titles or bodies"
+        summary["time_window"] = {
+            "earliest_post_at": DEMO_EARLIEST_POST_TIME.isoformat(),
+            "latest_post_at": DEMO_LATEST_POST_TIME.isoformat(),
+            "earliest_errand_at": DEMO_EARLIEST_TASK_TIME.isoformat(),
+            "latest_errand_at": DEMO_LATEST_TASK_TIME.isoformat(),
+            "generated_at": DEMO_NOW_LOCAL_TIME.isoformat(),
+        }
         summary["seed_prefix"] = SEED_PREFIX
         return summary
 

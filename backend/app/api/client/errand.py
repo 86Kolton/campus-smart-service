@@ -43,7 +43,7 @@ async def list_errands(identity: ClientIdentity = Depends(require_client_identit
 
 
 @router.get("/errands/my", response_model=ErrandListResponse)
-async def list_my_errands(identity: ClientIdentity = Depends(require_client_identity)) -> ErrandListResponse:
+async def list_my_errands(identity: ClientIdentity = Depends(require_wechat_bound_client)) -> ErrandListResponse:
     return ErrandListResponse(items=errand_service.list_my_tasks(viewer_user_id=identity.user_id))
 
 

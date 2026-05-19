@@ -49,6 +49,7 @@
 - `POST /api/admin/feed/adopt-comment`
 - `GET /api/admin/feed/adoptions`
 - `POST /api/admin/maintenance/cleanup-stale-posts`
+- `POST /api/admin/maintenance/reconcile-interaction-counts`
 - `GET /api/admin/devtools/status`
 - `POST /api/admin/devtools/self-check`
 - `GET /api/admin/devtools/config`
@@ -181,6 +182,14 @@ Embedding 现已支持两种模式：
 - `EMBEDDING_MODEL`
 - `EMBEDDING_DIM`
 - `EMBEDDING_TIMEOUT_SECONDS`
+
+文档上传会先使用本地解析器抽取 txt/md/csv/json/yaml/xml/rtf/doc/docx/pdf/html/xls/xlsx/ppt/pptx/odt/ods/odp 等正文；扫描 PDF 或图片资料抽不到可复制文字时，可启用 OpenAI-compatible 视觉 OCR 模型兜底，识别结果会保存为可查看、可编辑、可重新入库的 Markdown：
+- `DOCUMENT_OCR_ENABLED`
+- `DOCUMENT_OCR_BASE_URL`（为空时复用 `QA_BASE_URL`）
+- `DOCUMENT_OCR_API_KEY`（为空时复用 `QA_API_KEY`）
+- `DOCUMENT_OCR_MODEL`
+- `DOCUMENT_OCR_TIMEOUT_SECONDS`
+- `DOCUMENT_OCR_MAX_PAGES`
 
 ## 6. 注意
 

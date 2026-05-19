@@ -17,6 +17,69 @@ from app.models.post_save import PostSave
 
 
 class MaintenanceService:
+    def reconcile_interaction_counts(self) -> dict:
+        with SessionLocal() as db:
+            post_like_counts = {
+                int(post_id): int(count)
+                for post_id, count in db.execute(
+                    select(PostLike.post_id, func.count(PostLike.id)).group_by(PostLike.post_id)
+                ).all()
+            }
+            post_comment_counts = {
+                int(post_id): int(count)
+                for post_id, count in db.execute(
+                    select(Comment.post_id, func.count(Comment.id))
+                    .where(Comment.status == "visible")
+                    .group_by(Comment.post_id)
+                ).all()
+            }
+            comment_like_counts = {
+                int(comment_id): int(count)
+                for comment_id, count in db.execute(
+                    select(CommentLike.comment_id, func.count(CommentLike.id)).group_by(CommentLike.comment_id)
+                ).all()
+            }
+
+            checked_posts = 0
+            fixed_post_likes = 0
+            fixed_post_comments = 0
+            for post in db.execute(select(Post)).scalars().all():
+                checked_posts += 1
+                actual_likes = post_like_counts.get(int(post.id), 0)
+                actual_comments = post_comment_counts.get(int(post.id), 0)
+                post_changed = False
+                if int(post.likes_count or 0) != actual_likes:
+                    post.likes_count = actual_likes
+                    fixed_post_likes += 1
+                    post_changed = True
+                if int(post.comments_count or 0) != actual_comments:
+                    post.comments_count = actual_comments
+                    fixed_post_comments += 1
+                    post_changed = True
+                if post_changed:
+                    db.add(post)
+
+            checked_comments = 0
+            fixed_comment_likes = 0
+            for comment in db.execute(select(Comment)).scalars().all():
+                checked_comments += 1
+                actual_likes = comment_like_counts.get(int(comment.id), 0)
+                if int(comment.likes_count or 0) != actual_likes:
+                    comment.likes_count = actual_likes
+                    fixed_comment_likes += 1
+                    db.add(comment)
+
+            if fixed_post_likes or fixed_post_comments or fixed_comment_likes:
+                db.commit()
+
+            return {
+                "checked_posts": checked_posts,
+                "fixed_post_likes": fixed_post_likes,
+                "fixed_post_comments": fixed_post_comments,
+                "checked_comments": checked_comments,
+                "fixed_comment_likes": fixed_comment_likes,
+            }
+
     def cleanup_stale_unadopted_posts(self, days: int = 7) -> dict:
         safe_days = max(1, int(days or 7))
         cutoff = datetime.now(tz=timezone.utc) - timedelta(days=safe_days)

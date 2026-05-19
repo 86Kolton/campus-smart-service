@@ -81,6 +81,13 @@
   border: 1rpx solid rgba(212, 225, 240, 0.98);
 }
 
+.upload-meta {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  line-height: 1.5;
+  color: var(--ink-500);
+}
+
 .submit-btn {
   width: 100%;
 }

@@ -20,16 +20,39 @@ def create_access_token(
     jti: str | None = None,
 ) -> str:
     ttl = expire_minutes if expire_minutes is not None else settings.jwt_expire_minutes
-    expire = datetime.now(tz=timezone.utc) + timedelta(minutes=int(ttl))
-    payload: dict[str, Any] = {"sub": subject, "typ": token_type, "exp": expire, "jti": jti or _new_jti()}
+    now = datetime.now(tz=timezone.utc)
+    expire = now + timedelta(minutes=int(ttl))
+    payload: dict[str, Any] = {
+        "sub": subject,
+        "typ": token_type,
+        "iat": int(now.timestamp()),
+        "exp": expire,
+        "jti": jti or _new_jti(),
+    }
     if extra:
         payload.update(extra)
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
-def create_refresh_token(subject: str, extra: dict[str, Any] | None = None, jti: str | None = None) -> str:
-    expire = datetime.now(tz=timezone.utc) + timedelta(days=int(settings.jwt_refresh_days))
-    payload: dict[str, Any] = {"sub": subject, "typ": "client_refresh", "exp": expire, "jti": jti or _new_jti()}
+def create_refresh_token(
+    subject: str,
+    extra: dict[str, Any] | None = None,
+    jti: str | None = None,
+    expire_days: int | None = None,
+    expire_minutes: int | None = None,
+) -> str:
+    now = datetime.now(tz=timezone.utc)
+    if expire_minutes is not None:
+        expire = now + timedelta(minutes=int(expire_minutes))
+    else:
+        expire = now + timedelta(days=int(expire_days if expire_days is not None else settings.jwt_refresh_days))
+    payload: dict[str, Any] = {
+        "sub": subject,
+        "typ": "client_refresh",
+        "iat": int(now.timestamp()),
+        "exp": expire,
+        "jti": jti or _new_jti(),
+    }
     if extra:
         payload.update(extra)
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")

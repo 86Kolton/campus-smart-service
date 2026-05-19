@@ -45,6 +45,27 @@ function normalizeSearchItem(item = {}, index = 0) {
   };
 }
 
+function findGroup(groupId = "") {
+  const safeId = String(groupId || "");
+  return GROUPS.find((item) => item.id === safeId) || null;
+}
+
+function buildGroupDetailUrl(group, joined = false) {
+  const params = {
+    id: group.id,
+    title: group.title,
+    query: group.query,
+    members: String(group.members),
+    online: String(group.online),
+    tags: (group.tags || []).join(","),
+    joined: joined ? "1" : ""
+  };
+  const query = Object.keys(params)
+    .map((key) => `${key}=${encodeURIComponent(params[key] || "")}`)
+    .join("&");
+  return `/pages/group-detail/group-detail?${query}`;
+}
+
 Page({
   data: {
     groups: GROUPS,
@@ -94,9 +115,21 @@ Page({
   },
 
   onTapGroup(event) {
-    const query = event.currentTarget.dataset.query || "";
-    const label = event.currentTarget.dataset.title || "讨论组";
-    this.loadMatches(query, label);
+    const group = findGroup(event.currentTarget.dataset.id);
+    if (!group) {
+      wx.showToast({ title: "讨论组不存在", icon: "none" });
+      return;
+    }
+    wx.navigateTo({ url: buildGroupDetailUrl(group, false) });
+  },
+
+  joinGroup(event) {
+    const group = findGroup(event.currentTarget.dataset.id);
+    if (!group) {
+      wx.showToast({ title: "讨论组不存在", icon: "none" });
+      return;
+    }
+    wx.navigateTo({ url: buildGroupDetailUrl(group, true) });
   },
 
   onTapTopic(event) {

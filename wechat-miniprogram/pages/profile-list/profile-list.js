@@ -1,4 +1,5 @@
 const { apiRequest } = require("../../utils/request");
+const { buildApiUrl } = require("../../config/env");
 const { decodeRouteText, normalizePostId } = require("../../utils/ui");
 
 const MODE_CONFIG = {
@@ -21,11 +22,19 @@ function parseNumericId(rawId = "") {
   return match ? Number(match[1]) : 0;
 }
 
+function normalizeImageUrl(path) {
+  const text = String(path || "").trim();
+  if (!text) return "";
+  return /^https?:\/\//i.test(text) ? text : buildApiUrl(text);
+}
+
 function normalizeFeedItem(item = {}) {
   return {
     ...item,
     id: normalizePostId(item.id || ""),
     source_type: "feed",
+    imageUrl: normalizeImageUrl(item.image_url || item.imageUrl || ""),
+    can_delete: Boolean(item.can_delete || item.canDelete),
     metaLine: `${item.time} · 点赞 ${item.likes} · 评论 ${item.comments}`,
     actionText: "进入原帖",
     locationText: ""
@@ -53,7 +62,8 @@ Page({
     config: MODE_CONFIG.my,
     items: [],
     loading: false,
-    error: ""
+    error: "",
+    deletingId: ""
   },
 
   onLoad(query) {
@@ -108,5 +118,43 @@ Page({
       return;
     }
     wx.navigateTo({ url: `/pages/post/post?id=${encodeURIComponent(normalizePostId(id))}&title=${encodeURIComponent(title)}` });
+  },
+
+  previewImage(event) {
+    const url = String(event.currentTarget.dataset.url || "").trim();
+    if (!url) return;
+    wx.previewImage({ current: url, urls: [url] });
+  },
+
+  async deletePost(event) {
+    const id = normalizePostId(event.currentTarget.dataset.id || "");
+    if (!id || this.data.deletingId) return;
+    const confirmed = await new Promise((resolve) => {
+      wx.showModal({
+        title: "删除帖子",
+        content: "删除后评论、点赞、收藏和消息提醒会同步清理，是否继续？",
+        confirmText: "删除",
+        confirmColor: "#c9413a",
+        success: (res) => resolve(Boolean(res && res.confirm))
+      });
+    });
+    if (!confirmed) return;
+
+    this.setData({ deletingId: id });
+    try {
+      await apiRequest({ url: "/api/client/feed/post/delete", method: "POST", data: { post_id: id } });
+      const app = getApp();
+      app.globalData.feedNeedsRefresh = true;
+      app.globalData.profileNeedsRefresh = true;
+      app.globalData.messageNeedsRefresh = true;
+      this.setData({
+        deletingId: "",
+        items: this.data.items.filter((item) => normalizePostId(item.id || "") !== id)
+      });
+      wx.showToast({ title: "帖子已删除", icon: "success" });
+    } catch (error) {
+      this.setData({ deletingId: "" });
+      wx.showToast({ title: error && error.message || "删除失败", icon: "none" });
+    }
   }
 });

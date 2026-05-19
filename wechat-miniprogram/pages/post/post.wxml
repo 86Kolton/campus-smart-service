@@ -32,10 +32,11 @@
       <view class="field-stack">
         <view class="field-label">图片补充</view>
         <view class="upload-toolbar">
-          <button class="btn-ghost tool-btn" bindtap="chooseDraftImage">上传图片（不超过 1MB）</button>
+          <button class="btn-ghost tool-btn" bindtap="chooseDraftImage">上传图片</button>
           <button wx:if="{{draftImagePath}}" class="btn-ghost tool-btn" bindtap="removeDraftImage">移除图片</button>
         </view>
         <image wx:if="{{draftImagePath}}" class="upload-preview" src="{{draftImagePath}}" mode="aspectFill" bindtap="previewImage" data-url="{{draftImagePath}}" />
+        <view wx:if="{{draftImageMeta}}" class="upload-meta">{{draftImageMeta}}</view>
       </view>
 
       <button class="btn-primary submit-btn" bindtap="submitPost" loading="{{postSubmitting}}" disabled="{{postSubmitting}}">发布帖子</button>
@@ -116,6 +117,7 @@
         <button wx:if="{{commentImagePath}}" class="btn-ghost tool-btn" bindtap="removeCommentImage">移除图片</button>
       </view>
       <image wx:if="{{commentImagePath}}" class="upload-preview" src="{{commentImagePath}}" mode="aspectFill" bindtap="previewImage" data-url="{{commentImagePath}}" />
+      <view wx:if="{{commentImageMeta}}" class="upload-meta">{{commentImageMeta}}</view>
       <button class="btn-primary submit-btn" bindtap="sendComment" loading="{{commentSubmitting}}" disabled="{{commentSubmitting}}">{{replyTarget ? '发送回复' : '发送评论'}}</button>
     </view>
   </block>

@@ -4,14 +4,20 @@
   const CLIENT_TOKEN_KEY = "campus_client_token";
   const DEFAULT_SCREEN = "overview";
   const PAGE_SIZES = { kb: 6, docs: 8, tasks: 8, logs: 6, reviews: 6, adoptions: 6 };
-  const SECRET_KEYS = new Set(["WECHAT_APP_SECRET", "QA_API_KEY", "EVOLUTION_AI_REVIEW_API_KEY", "RERANK_API_KEY", "EMBEDDING_API_KEY"]);
-  const NUMBER_KEYS = new Set(["QA_TIMEOUT_SECONDS", "EMBEDDING_DIM", "EMBEDDING_TIMEOUT_SECONDS", "RERANK_TIMEOUT_SECONDS", "WECHAT_TIMEOUT_SECONDS"]);
+  const SECRET_KEYS = new Set(["WECHAT_APP_SECRET", "QA_API_KEY", "DOCUMENT_OCR_API_KEY", "EVOLUTION_AI_REVIEW_API_KEY", "RERANK_API_KEY", "EMBEDDING_API_KEY"]);
+  const NUMBER_KEYS = new Set(["QA_TIMEOUT_SECONDS", "DOCUMENT_OCR_TIMEOUT_SECONDS", "DOCUMENT_OCR_MAX_PAGES", "EVOLUTION_AI_REVIEW_TIMEOUT_SECONDS", "EVOLUTION_AI_REVIEW_MIN_SCORE", "EMBEDDING_DIM", "EMBEDDING_TIMEOUT_SECONDS", "RERANK_TIMEOUT_SECONDS", "WECHAT_TIMEOUT_SECONDS"]);
   const DEFAULT_CONFIG_KEYS = [
     "QA_PROVIDER",
     "QA_BASE_URL",
     "QA_API_KEY",
     "QA_MODEL",
     "QA_TIMEOUT_SECONDS",
+    "DOCUMENT_OCR_ENABLED",
+    "DOCUMENT_OCR_BASE_URL",
+    "DOCUMENT_OCR_API_KEY",
+    "DOCUMENT_OCR_MODEL",
+    "DOCUMENT_OCR_TIMEOUT_SECONDS",
+    "DOCUMENT_OCR_MAX_PAGES",
     "EVOLUTION_AI_REVIEW_ENABLED",
     "EVOLUTION_AI_REVIEW_PROVIDER",
     "EVOLUTION_AI_REVIEW_BASE_URL",
@@ -41,6 +47,13 @@
   const CONFIG_GROUPS = [
     { key: "qa", title: "QA 问答模型", desc: "主问答模型与接口地址。", keys: ["QA_PROVIDER", "QA_BASE_URL", "QA_API_KEY", "QA_MODEL", "QA_TIMEOUT_SECONDS"], cols: 2 },
     {
+      key: "ocr",
+      title: "文档 OCR 模型",
+      desc: "扫描 PDF、截图和图片资料抽不到文字时自动调用视觉模型入库。",
+      keys: ["DOCUMENT_OCR_ENABLED", "DOCUMENT_OCR_BASE_URL", "DOCUMENT_OCR_API_KEY", "DOCUMENT_OCR_MODEL", "DOCUMENT_OCR_TIMEOUT_SECONDS", "DOCUMENT_OCR_MAX_PAGES"],
+      cols: 3,
+    },
+    {
       key: "evolution",
       title: "自进化 AI 审核",
       desc: "高质量帖子进入知识库前的审核模型与阈值。",
@@ -61,6 +74,7 @@
   ];
   const SELECT_OPTIONS = {
     QA_PROVIDER: ["openai_compatible", "openai", "siliconflow", "none"],
+    DOCUMENT_OCR_ENABLED: ["true", "false"],
     EVOLUTION_AI_REVIEW_ENABLED: ["true", "false"],
     EVOLUTION_AI_REVIEW_PROVIDER: ["qa_reuse", "openai_compatible", "siliconflow", "none"],
     EMBEDDING_PROVIDER: ["openai_compatible", "local_stub", "siliconflow", "none"],
@@ -70,6 +84,7 @@
   };
   const MODEL_HINTS = {
     QA_MODEL: ["Qwen/Qwen2.5-7B-Instruct", "Qwen/Qwen3.5-9B", "deepseek-ai/DeepSeek-V3", "THUDM/GLM-4-9B-Chat"],
+    DOCUMENT_OCR_MODEL: ["Qwen/Qwen3-VL-32B-Instruct", "Qwen/Qwen3-VL-8B-Instruct", "PaddlePaddle/PaddleOCR-VL-1.5", "THUDM/GLM-4.1V-9B-Thinking"],
     EVOLUTION_AI_REVIEW_MODEL: ["Qwen/Qwen2.5-7B-Instruct", "Qwen/Qwen3.5-9B", "deepseek-ai/DeepSeek-V3"],
     EMBEDDING_MODEL: ["BAAI/bge-m3", "Qwen/Qwen3-Embedding-4B", "BAAI/bge-large-zh-v1.5"],
     RERANK_MODEL: ["Qwen/Qwen3-Reranker-0.6B", "BAAI/bge-reranker-v2-m3", "Qwen/Qwen3-Reranker-4B"],
@@ -84,6 +99,8 @@
     collections: { kb: [], docs: [], tasks: [], logs: [], reviews: [], adoptions: [] },
     pagers: {},
     status: null,
+    evolutionOverview: null,
+    selectedDocument: null,
     lastEvolution: null,
     lastCleanup: null,
   };
@@ -91,6 +108,12 @@
   const byId = (id) => document.getElementById(id);
   const esc = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
   const now = () => new Date().toLocaleString("zh-CN", { hour12: false });
+  const compactDate = (value) => {
+    if (!value) return "-";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return String(value).slice(0, 16);
+    return parsed.toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+  };
   const setWorkspaceStatus = (text) => { const node = byId("workspaceStatusText"); if (node) node.textContent = text; };
   const redirectToLogin = () => window.location.replace("./login.html");
   const normalizeScreen = (value) => { const next = String(value || "").replace(/^#/, "").trim(); return SCREENS.has(next) ? next : DEFAULT_SCREEN; };
@@ -108,6 +131,34 @@
     if (blocked) {
       return `当前设备登录失败次数过多，已被临时限制 ${Math.max(1, Math.ceil(Number(blocked[1] || 0) / 60))} 分钟`;
     }
+    const friendlyMap = {
+      document_format_not_supported: "当前支持 txt、md、csv、tsv、json、yaml、xml、log、rtf、doc/docx、pdf、html、xls/xlsx、ppt/pptx、odt/ods/odp，以及 png/jpg/webp/bmp/tiff 图片 OCR；请确认文件后缀正确。",
+      document_mime_not_supported: "文件类型和后缀不一致，请确认上传的是常见文本、网页、PDF、Word、Excel、PPT 或 OpenDocument 文档。",
+      document_encoding_not_supported: "文本编码暂时无法识别，请另存为 UTF-8 编码后再上传。",
+      document_docx_invalid: "这个 docx 文件结构不完整或已损坏，请重新另存一份 docx 后再上传。",
+      document_legacy_doc_not_supported: "旧版 doc 是二进制 Word 格式，当前服务器无法可靠抽取正文；请用 Word/WPS 另存为 docx 后再上传。",
+      document_legacy_ppt_not_supported: "旧版 ppt 是二进制演示文稿格式，当前服务器无法可靠抽取正文；请另存为 pptx 后上传。",
+      document_pdf_invalid: "这个 PDF 文件结构不完整或已损坏，请重新导出 PDF 后再上传。",
+      document_pdf_text_empty: "这个 PDF 没有可抽取文字，且当前 OCR 模型未配置或未能识别；请在配置中心启用文档 OCR 模型后重试。",
+      document_ocr_not_configured: "文档 OCR 模型尚未配置。可在配置中心填写 DOCUMENT_OCR_BASE_URL / API_KEY / MODEL，或复用 QA 的接口地址和 Key。",
+      document_ocr_failed: "文档 OCR 模型调用失败，请检查接口地址、Key、模型名和网络后重试。",
+      document_ocr_empty: "OCR 没有识别到可入库文字，请确认图片清晰、方向正确。",
+      document_pdf_ocr_empty: "OCR 没有从 PDF 页面识别到可入库文字，请确认扫描页清晰、方向正确。",
+      document_image_ocr_empty: "OCR 没有从图片识别到可入库文字，请确认图片清晰、方向正确。",
+      document_image_invalid: "这个图片文件结构异常或后缀不匹配，请重新导出为 png、jpg、webp、bmp 或 tiff 后再上传。",
+      document_html_invalid: "这个 HTML 文件结构异常，请重新保存网页或转成 Markdown/文本后上传。",
+      document_xml_invalid: "这个 XML 文件结构异常，请检查文件是否完整后再上传。",
+      document_xlsx_invalid: "这个 xlsx 文件结构不完整或已损坏，请重新另存一份 xlsx 后再上传。",
+      document_xls_invalid: "这个 xls 文件无法解析，请重新另存为 xlsx 后再上传。",
+      document_xls_dependency_missing: "服务器缺少 xls 解析依赖，请先改传 xlsx；我已在项目依赖中补上 xlrd，重新部署后即可解析。",
+      document_pptx_invalid: "这个 pptx 文件结构不完整或已损坏，请重新另存一份 pptx 后再上传。",
+      document_odf_invalid: "这个 OpenDocument 文件结构异常，请重新另存后再上传。",
+      document_too_large: "文件超过大小限制，请压缩内容或拆分成多个文档后上传。",
+      document_empty: "文件内容为空，请选择有正文内容的文档。",
+    };
+    const code = text.replace(/^\d+:\s*/, "").trim();
+    if (friendlyMap[code]) return friendlyMap[code];
+    if (code.startsWith("document_format_not_supported:")) return friendlyMap.document_format_not_supported;
     return text;
   };
 
@@ -120,7 +171,20 @@
     }
   };
 
-  const isTokenInvalidError = (error) => /(^|\s)401:\s*(token_invalid|client_token_invalid|client_token_required|client_token_revoked)\b/.test(String(error?.message || error || ""));
+  const createApiError = (response, detail, authScope = "none") => {
+    const error = new Error(`${response.status}: ${detail}`);
+    error.status = response.status;
+    error.detail = detail;
+    error.authScope = authScope;
+    return error;
+  };
+
+  const isTokenInvalidError = (error) => {
+    const scope = String(error?.authScope || "");
+    if (scope === "admin") return false;
+    const text = String(error?.detail || error?.message || error || "");
+    return /(^|\s)(401:\s*)?(token_invalid|token_expired|client_token_invalid|client_token_required|client_token_revoked)\b/.test(text);
+  };
 
   const logout = (notify = true) => {
     state.token = "";
@@ -147,8 +211,13 @@
       body: isFormData ? body : body ? JSON.stringify(body) : undefined,
     });
     if (!response.ok) {
-      if (response.status === 401 && auth) logout(false);
-      throw new Error(`${response.status}: ${await parseError(response)}`);
+      const detail = await parseError(response);
+      const authScope = auth ? "admin" : (finalHeaders.Authorization ? "client" : "none");
+      if (response.status === 401 && auth) {
+        logout(false);
+        throw createApiError(response, detail, authScope);
+      }
+      throw createApiError(response, detail, authScope);
     }
     if (noJson || response.status === 204) return {};
     return response.json();
@@ -235,6 +304,12 @@
     QA_API_KEY: "QA API Key",
     QA_MODEL: "QA 模型名",
     QA_TIMEOUT_SECONDS: "QA 超时（秒）",
+    DOCUMENT_OCR_ENABLED: "文档 OCR 开关",
+    DOCUMENT_OCR_BASE_URL: "OCR 接口地址",
+    DOCUMENT_OCR_API_KEY: "OCR API Key",
+    DOCUMENT_OCR_MODEL: "OCR 视觉模型名",
+    DOCUMENT_OCR_TIMEOUT_SECONDS: "OCR 超时（秒）",
+    DOCUMENT_OCR_MAX_PAGES: "PDF OCR 页数上限",
     EVOLUTION_AI_REVIEW_ENABLED: "AI 审核开关",
     EVOLUTION_AI_REVIEW_PROVIDER: "AI 审核 Provider",
     EVOLUTION_AI_REVIEW_BASE_URL: "AI 审核接口地址",
@@ -264,10 +339,26 @@
     return rows.map((item) => `<option value="${esc(item)}"${String(item) === current ? " selected" : ""}>${esc(item)}</option>`).join("");
   };
 
-  const renderConfigField = (key, value = "") => {
+  const isQaReuseReview = (masked = {}) => String(masked.EVOLUTION_AI_REVIEW_PROVIDER || "qa_reuse").trim().toLowerCase() !== "none"
+    && String(masked.EVOLUTION_AI_REVIEW_PROVIDER || "qa_reuse").trim().toLowerCase() !== "openai_compatible"
+    && String(masked.EVOLUTION_AI_REVIEW_PROVIDER || "qa_reuse").trim().toLowerCase() !== "siliconflow";
+
+  const getConfigFieldPlaceholder = (key, current = "", masked = {}) => {
+    if (String(current || "").trim()) return "";
+    if (!isQaReuseReview(masked)) return "";
+    const placeholders = {
+      EVOLUTION_AI_REVIEW_BASE_URL: "复用 QA_BASE_URL，无需单独填写",
+      EVOLUTION_AI_REVIEW_API_KEY: "复用 QA_API_KEY，无需单独填写",
+      EVOLUTION_AI_REVIEW_MODEL: "复用 QA_MODEL，无需单独填写",
+    };
+    return placeholders[key] || "";
+  };
+
+  const renderConfigField = (key, value = "", masked = {}) => {
     const current = String(value ?? "");
     if (MODEL_KEYS.has(key)) {
       const preset = (MODEL_HINTS[key] || []).includes(current) ? current : CUSTOM_MODEL_VALUE;
+      const placeholder = getConfigFieldPlaceholder(key, current, masked) || "可手动输入任意模型名";
       const options = [
         { value: "", label: "选择预设模型" },
         ...(MODEL_HINTS[key] || []).map((item) => ({ value: item, label: item })),
@@ -279,7 +370,7 @@
           <select data-model-preset-key="${esc(key)}" data-model-custom="${esc(CUSTOM_MODEL_VALUE)}">
             ${options.map((item) => `<option value="${esc(item.value)}"${item.value === preset ? " selected" : ""}>${esc(item.label)}</option>`).join("")}
           </select>
-          <input data-config-key="${esc(key)}" data-secret="false" type="text" value="${esc(current)}" placeholder="可手动输入任意模型名" autocomplete="off" />
+          <input data-config-key="${esc(key)}" data-secret="false" type="text" value="${esc(current)}" placeholder="${esc(placeholder)}" autocomplete="off" />
         </label>
       `;
     }
@@ -287,10 +378,33 @@
       return `<label>${esc(getConfigFieldLabel(key))}<select data-config-key="${esc(key)}" data-secret="false">${renderSelectOptions(key, current)}</select></label>`;
     }
     if (SECRET_KEYS.has(key)) {
-      const placeholder = current ? `已保存：${current}` : "未设置（输入后保存）";
+      const placeholder = current ? `已保存：${current}` : getConfigFieldPlaceholder(key, current, masked) || "未设置（输入后保存）";
       return `<label>${esc(getConfigFieldLabel(key))}<input data-config-key="${esc(key)}" data-secret="true" type="password" value="" placeholder="${esc(placeholder)}" autocomplete="off" /></label>`;
     }
-    return `<label>${esc(getConfigFieldLabel(key))}<input data-config-key="${esc(key)}" data-secret="false" type="${NUMBER_KEYS.has(key) ? "number" : "text"}" value="${esc(current)}" autocomplete="off" /></label>`;
+    const placeholder = getConfigFieldPlaceholder(key, current, masked);
+    return `<label>${esc(getConfigFieldLabel(key))}<input data-config-key="${esc(key)}" data-secret="false" type="${NUMBER_KEYS.has(key) ? "number" : "text"}" value="${esc(current)}" placeholder="${esc(placeholder)}" autocomplete="off" /></label>`;
+  };
+
+  const hasConfigValue = (masked, key) => Boolean(String(masked?.[key] || "").trim());
+
+  const renderConfigGroupNotice = (groupKey, masked) => {
+    if (groupKey !== "evolution") return "";
+    const enabled = String(masked.EVOLUTION_AI_REVIEW_ENABLED || "true").trim().toLowerCase() !== "false";
+    const provider = String(masked.EVOLUTION_AI_REVIEW_PROVIDER || "qa_reuse").trim().toLowerCase() || "qa_reuse";
+    const qaReady = hasConfigValue(masked, "QA_BASE_URL") && hasConfigValue(masked, "QA_API_KEY") && hasConfigValue(masked, "QA_MODEL");
+    const dedicatedReady = hasConfigValue(masked, "EVOLUTION_AI_REVIEW_BASE_URL") && hasConfigValue(masked, "EVOLUTION_AI_REVIEW_API_KEY") && hasConfigValue(masked, "EVOLUTION_AI_REVIEW_MODEL");
+
+    if (!enabled || provider === "none") {
+      return '<div class="config-group-notice is-muted">AI 审核当前关闭：帖子入库会退回规则评分。答辩演示建议保持开启。</div>';
+    }
+    if (provider === "qa_reuse") {
+      return qaReady
+        ? '<div class="config-group-notice is-ok">当前 AI 审核已配置为复用 QA：接口地址、API Key、模型名会自动读取 QA_*，所以下方 AI 审核专属地址 / Key / 模型可以留空。</div>'
+        : '<div class="config-group-notice is-warn">当前选择复用 QA，但 QA 接口地址、API Key 或模型名还不完整；请先补齐 QA 配置，或把 Provider 改为 openai_compatible 后单独填写 AI 审核配置。</div>';
+    }
+    return dedicatedReady
+      ? '<div class="config-group-notice is-ok">AI 审核已使用独立模型配置，帖子进入知识库前会先调用该模型审核。</div>'
+      : '<div class="config-group-notice is-warn">当前选择独立 AI 审核 Provider，需要填写 AI 审核接口地址、API Key 和模型名。</div>';
   };
 
   const findConfigInputByKey = (key) => Array.from(document.querySelectorAll("#configForm input[data-config-key]")).find((node) => String(node.dataset.configKey || "") === key) || null;
@@ -320,7 +434,8 @@
     container.innerHTML = groups.map((group) => `
       <section class="config-group">
         <div class="config-group-head"><h4>${esc(group.title)}</h4><p>${esc(group.desc || "")}</p></div>
-        <div class="config-fields cols-${Number(group.cols || 2)}">${group.keys.map((key) => renderConfigField(key, masked[key] || "")).join("")}</div>
+        ${renderConfigGroupNotice(group.key, masked)}
+        <div class="config-fields cols-${Number(group.cols || 2)}">${group.keys.map((key) => renderConfigField(key, masked[key] || "", masked)).join("")}</div>
       </section>
     `).join("");
   };
@@ -335,6 +450,8 @@
         title: "关键配置",
         badges: [
           { label: "QA", ok: Boolean(status.qa_configured) },
+          { label: "OCR", ok: Boolean(status.document_ocr_configured) },
+          { label: `AI审核 ${status.evolution_ai_review_provider || "-"}`, ok: Boolean(status.evolution_ai_review_configured) },
           { label: `Embedding ${status.embedding_provider || "-"}`, ok: Boolean(status.embedding_configured) },
           { label: "Rerank", ok: Boolean(status.rerank_configured) },
           { label: "WeChat", ok: Boolean(status.wechat_configured) },
@@ -362,12 +479,45 @@
       node.innerHTML = '<div class="empty-state">暂无自检结果</div>';
       return;
     }
-    node.innerHTML = items.map((item) => `
+    const detailText = (item) => {
+      const detail = String(item.detail || "");
+      if (item.name === "qdrant_config" && detail === "qdrant_optional_local_fallback") {
+        return "未配置 Qdrant，当前使用本地缓存/词法检索兜底，可正常完成知识库演示；生产环境再补向量库即可。";
+      }
+      if (item.name === "qdrant_config" && detail === "qdrant_url_configured") {
+        return "Qdrant 向量库地址已配置。";
+      }
+      if (item.name === "document_ocr_config" && detail === "ocr_model_ready") {
+        return "文档 OCR 模型已配置，扫描 PDF 和图片可自动识别入库。";
+      }
+      if (item.name === "document_ocr_config" && detail === "ocr_optional_but_not_configured") {
+        return "文档 OCR 未配置；普通可复制文档不受影响，扫描件和图片需要配置视觉模型。";
+      }
+      if (item.name === "evolution_ai_review_config" && detail === "ai_review_reuse_qa_ready") {
+        return "自进化 AI 审核已就绪：当前复用 QA 接口、Key 和模型，AI 审核专属配置留空是正常的。";
+      }
+      if (item.name === "evolution_ai_review_config" && detail === "ai_review_dedicated_ready") {
+        return "自进化 AI 审核已就绪：当前使用独立 AI 审核模型配置。";
+      }
+      if (item.name === "evolution_ai_review_config" && detail === "ai_review_disabled") {
+        return "自进化 AI 审核已关闭；系统会退回规则评分。";
+      }
+      if (item.name === "evolution_ai_review_config" && detail === "ai_review_missing_base_url_or_key_or_model") {
+        return "自进化 AI 审核未完整配置：使用 qa_reuse 时请补齐 QA 接口地址、API Key 和模型；使用独立 Provider 时请补齐 AI 审核专属配置。";
+      }
+      return detail;
+    };
+    node.innerHTML = items.map((item) => {
+      const optional = item.name === "qdrant_config" && String(item.detail || "").includes("optional");
+      const pillClass = optional ? "warn" : item.passed ? "ok" : "bad";
+      const pillText = optional ? "可选兜底" : item.passed ? "通过" : "失败";
+      return `
       <div class="table-meta">
-        <div><strong>${esc(item.name)}</strong><div class="hint">${esc(item.detail || "")}</div></div>
-        <span class="status-pill ${item.passed ? "ok" : "bad"}">${item.passed ? "通过" : "失败"}</span>
+        <div><strong>${esc(item.name)}</strong><div class="hint">${esc(detailText(item))}</div></div>
+        <span class="status-pill ${pillClass}">${pillText}</span>
       </div>
-    `).join("");
+    `;
+    }).join("");
   };
 
   const renderKbSelectors = (items) => {
@@ -409,7 +559,10 @@
         <td>${item.doc_count}</td>
         <td>${item.chunk_count}</td>
         <td>${esc(item.status)}</td>
-        <td><button class="btn ghost danger" type="button" data-action="delete-kb" data-id="${item.id}">删除</button></td>
+        <td class="table-actions">
+          <button class="btn ghost" type="button" data-action="open-kb-docs" data-id="${item.id}">查看/修改内容</button>
+          <button class="btn ghost danger" type="button" data-action="delete-kb" data-id="${item.id}">删除</button>
+        </td>
       `,
     });
   };
@@ -424,7 +577,7 @@
     renderPagedTable({
       key: "docs",
       containerId: "docTable",
-      columns: ["ID", "KB", "文件", "状态", "Chunk", "错误", "时间"],
+      columns: ["ID", "KB", "文件", "状态", "Chunk", "错误", "时间", "操作"],
       items,
       emptyText: "当前知识库下暂无文档。",
       rowRenderer: (row) => `
@@ -435,8 +588,38 @@
         <td>${row.chunk_count}</td>
         <td>${esc(row.error_message || "")}</td>
         <td>${esc(row.created_at || "")}</td>
+        <td class="table-actions">
+          <button class="btn ghost" type="button" data-action="open-document" data-id="${row.id}">查看/编辑</button>
+          <button class="btn ghost danger" type="button" data-action="delete-document" data-id="${row.id}">移除</button>
+        </td>
       `,
     });
+  };
+
+  const renderDocumentEditor = () => {
+    const box = byId("docEditor");
+    if (!box) return;
+    const selected = state.selectedDocument;
+    if (!selected) {
+      box.innerHTML = '<div class="empty-state">从知识库列表点击“查看/修改内容”，或在文档列表里打开具体文档；保存并重新入库后，编辑窗口会自动关闭，避免误以为没有保存。</div>';
+      return;
+    }
+    const doc = selected.document || {};
+    box.innerHTML = `
+      <div class="doc-editor-head">
+        <div>
+          <p class="module-kicker">Review Editor</p>
+          <h4>${esc(doc.file_name || `Document #${doc.id}`)}</h4>
+          <p class="hint">文档 #${esc(doc.id)} · KB #${esc(doc.kb_id)} · ${esc(doc.status || "")} · ${esc(doc.chunk_count || 0)} chunks</p>
+        </div>
+        <div class="module-actions">
+          <button id="btnSaveDocContent" class="btn" type="button" ${selected.editable ? "" : "disabled"}>保存并重新入库</button>
+          <button id="btnDeleteDocContent" class="btn ghost danger" type="button">不保留此条</button>
+        </div>
+      </div>
+      <textarea id="docContentEditor" class="doc-content-editor" ${selected.editable ? "" : "disabled"}>${esc(selected.content || "")}</textarea>
+      <p class="hint">建议只保留答辩演示和真实问答会用到的信息；点击保存后会自动重新入库并关闭本窗口，删除会同步移除知识库和回灌记录关联。</p>
+    `;
   };
 
   const renderTaskTable = () => {
@@ -496,15 +679,18 @@
 
   const renderEvolutionReviewTable = () => {
     const items = state.collections.reviews;
+    const overview = state.evolutionOverview || {};
+    const latestReview = overview.latest_review || {};
     renderPills("reviewSummary", [
       { label: "记录数", value: items.length },
       { label: "通过", value: items.filter((item) => String(item.decision) === "pass").length },
       { label: "拒绝", value: items.filter((item) => String(item.decision) === "reject").length },
+      { label: "最新审核", value: latestReview.created_at ? `${compactDate(latestReview.created_at)} ${latestReview.post_id || ""}` : "未加载" },
     ]);
     renderPagedTable({
       key: "reviews",
       containerId: "evolutionReviewTable",
-      columns: ["ID", "帖子", "结论", "分数", "模型", "文档", "理由", "时间"],
+      columns: ["ID", "帖子", "结论", "分数", "模型", "文档", "理由", "时间", "复核"],
       items,
       emptyText: "暂无 AI 审核记录。",
       rowRenderer: (row) => `
@@ -516,15 +702,23 @@
         <td>${row.document_id ?? "-"}</td>
         <td>${esc(row.reason).slice(0, 90)}</td>
         <td>${esc(row.created_at || "")}</td>
+        <td class="table-actions">
+          ${row.document_id ? `<button class="btn ghost" type="button" data-action="open-document" data-id="${row.document_id}">查看/修改</button>` : "-"}
+          ${row.document_id ? `<button class="btn ghost danger" type="button" data-action="delete-document" data-id="${row.document_id}">不保留</button>` : ""}
+        </td>
       `,
     });
   };
 
   const renderAdoptionTable = () => {
     const items = state.collections.adoptions;
+    const overview = state.evolutionOverview || {};
+    const latestAdoption = overview.latest_adoption || {};
     renderPills("adoptionSummary", [
       { label: "录用数", value: items.length },
-      { label: "最近录用", value: items[0] ? items[0].post_id : "—" },
+      { label: "最近录用", value: items[0] ? items[0].post_id : "-" },
+      { label: "缺失待修复", value: Number(overview.missing_adoption_records || 0) },
+      { label: "最新流水", value: latestAdoption.adopted_at ? `${compactDate(latestAdoption.adopted_at)} ${latestAdoption.post_id || ""}` : "未加载" },
     ]);
     renderPagedTable({
       key: "adoptions",
@@ -545,11 +739,14 @@
   const renderOpsSummary = () => {
     const evo = state.lastEvolution;
     const cleanup = state.lastCleanup;
+    const overview = state.evolutionOverview || {};
+    const latestReview = overview.latest_review || {};
+    const latestAdoption = overview.latest_adoption || {};
     const fallback = [
-      { title: "已加载审核", value: state.collections.reviews.length, meta: "当前审核记录数" },
-      { title: "已加载采纳", value: state.collections.adoptions.length, meta: "当前论坛采纳记录数" },
-      { title: "默认模式", value: "增量处理", meta: "优先跳过已审核帖子" },
-      { title: "本批上限", value: byId("evoLimit")?.value || "12", meta: "控制单次工作量" },
+      { title: "AI 审核总数", value: overview.total_reviews ?? state.collections.reviews.length, meta: latestReview.created_at ? `最新 ${compactDate(latestReview.created_at)}` : "等待加载健康概览" },
+      { title: "通过 / 拒绝", value: `${overview.passed_reviews ?? "-"} / ${overview.rejected_reviews ?? "-"}`, meta: "AI 自动筛选结果" },
+      { title: "待处理候选", value: overview.pending_posts ?? "-", meta: `已跳过 ${overview.reviewed_posts_skipped ?? "-"} 条` },
+      { title: "论坛采纳缺口", value: overview.missing_adoption_records ?? 0, meta: latestAdoption.adopted_at ? `最新流水 ${compactDate(latestAdoption.adopted_at)}` : "可一键修复迁移缺口" },
     ];
     const cards = evo
       ? [
@@ -606,6 +803,11 @@
       QA_BASE_URL: "https://api.siliconflow.cn/v1",
       QA_MODEL: "Qwen/Qwen2.5-7B-Instruct",
       QA_TIMEOUT_SECONDS: "30",
+      DOCUMENT_OCR_ENABLED: "true",
+      DOCUMENT_OCR_BASE_URL: "https://api.siliconflow.cn/v1",
+      DOCUMENT_OCR_MODEL: "Qwen/Qwen3-VL-32B-Instruct",
+      DOCUMENT_OCR_TIMEOUT_SECONDS: "45",
+      DOCUMENT_OCR_MAX_PAGES: "3",
       EVOLUTION_AI_REVIEW_ENABLED: "true",
       EVOLUTION_AI_REVIEW_PROVIDER: "qa_reuse",
       EVOLUTION_AI_REVIEW_TIMEOUT_SECONDS: "20",
@@ -664,6 +866,50 @@
     const path = kbId ? `/api/admin/documents?kb_id=${encodeURIComponent(kbId)}` : "/api/admin/documents";
     state.collections.docs = (await api(path)).items || [];
     renderDocTable();
+    renderDocumentEditor();
+  };
+
+  const openKbDocuments = async (kbId) => {
+    setActiveScreen("ingest");
+    const docSelect = byId("docKbSelect");
+    if (docSelect) docSelect.value = String(kbId || "");
+    state.selectedDocument = null;
+    await loadDocs();
+    log(`已打开知识库 #${kbId} 的文档列表，可逐条查看、修改或移除`, "ok");
+  };
+
+  const openDocument = async (id) => {
+    state.selectedDocument = await api(`/api/admin/documents/${encodeURIComponent(id)}/content`);
+    renderDocumentEditor();
+    setActiveScreen("ingest");
+    log(`已打开文档 #${id}，可以查看、编辑或移除`, "ok");
+  };
+
+  const saveSelectedDocument = async () => {
+    const selected = state.selectedDocument;
+    if (!selected?.document?.id) throw new Error("请先选择文档");
+    const content = String(byId("docContentEditor")?.value || "").trim();
+    if (!content) throw new Error("文档内容不能为空");
+    const payload = await api(`/api/admin/documents/${selected.document.id}/content`, {
+      method: "PUT",
+      body: { content, reindex: true },
+    });
+    const documentId = selected.document.id;
+    state.selectedDocument = null;
+    renderDocumentEditor();
+    log(payload.message || `文档 #${documentId} 已保存并重新入库，编辑窗口已关闭`, "ok");
+    await Promise.all([loadDocs(), loadTasks(), loadKb(), loadStatus()]);
+  };
+
+  const deleteDocument = async (id) => {
+    if (!window.confirm(`确定不保留文档 #${id} 吗？删除后会从知识库与向量索引中移除。`)) return;
+    const payload = await api(`/api/admin/documents/${encodeURIComponent(id)}`, { method: "DELETE" });
+    log(payload.message || `文档 #${id} 已移除`, "ok");
+    if (state.selectedDocument?.document && String(state.selectedDocument.document.id) === String(id)) {
+      state.selectedDocument = null;
+      renderDocumentEditor();
+    }
+    await Promise.all([loadDocs(), loadKb(), loadStatus(), loadEvolutionReviews()]);
   };
 
   const uploadDoc = async () => {
@@ -674,8 +920,8 @@
     const form = new FormData();
     form.append("kb_id", kbId);
     form.append("file", file);
-    const payload = await api("/api/admin/documents/upload", { method: "POST", body: form });
-    log(payload.message || "文档上传成功", "ok");
+    await api("/api/admin/documents/upload", { method: "POST", body: form });
+    log(`文档「${file.name}」上传成功，已自动抽取正文并创建入库任务`, "ok");
     if (byId("docFile")) byId("docFile").value = "";
     await Promise.all([loadDocs(), loadTasks(), loadStatus()]);
   };
@@ -702,6 +948,16 @@
     renderOpsSummary();
   };
 
+  const loadEvolutionOverview = async () => {
+    const kbId = Number(byId("evoKbId")?.value || 1);
+    const minLikes = Number(byId("evoMinLikes")?.value || 30);
+    const minComments = Number(byId("evoMinComments")?.value || 5);
+    state.evolutionOverview = await api(`/api/admin/rag/evolution/overview?kb_id=${kbId}&min_likes=${minLikes}&min_comments=${minComments}`);
+    renderOpsSummary();
+    renderEvolutionReviewTable();
+    renderAdoptionTable();
+  };
+
   const loadEvolutionReviews = async () => {
     state.collections.reviews = (await api("/api/admin/rag/evolution/reviews?limit=80")).items || [];
     renderEvolutionReviewTable();
@@ -720,7 +976,14 @@
     renderOpsSummary();
     log(`回灌完成：本批=${payload.synced_posts}，通过=${payload.accepted_posts}，拒绝=${payload.rejected_posts}，跳过已审核=${payload.reviewed_posts_skipped}，剩余=${payload.remaining_posts}`, "ok");
     setWorkspaceStatus("自进化批次已完成，结果已同步。");
-    await Promise.all([loadStatus(), loadKb(), loadEvolutionReviews(), loadAdoptions()]);
+    await Promise.all([loadStatus(), loadKb(), loadEvolutionReviews(), loadAdoptions(), loadEvolutionOverview()]);
+  };
+
+  const repairAdoptions = async () => {
+    const payload = await api("/api/admin/feed/adoptions/repair?limit=1000", { method: "POST" });
+    state.lastEvolution = null;
+    log(`采纳流水修复完成：补齐=${payload.created_adoptions}，清理孤儿采纳=${payload.cleared_orphan_adopted_flags || 0}，跳过无评论=${payload.skipped_without_comment}，剩余缺口=${payload.remaining_missing}`, "ok");
+    await Promise.all([loadAdoptions(), loadEvolutionOverview()]);
   };
 
   const runCleanup = async () => {
@@ -731,6 +994,13 @@
     log(`清理完成：posts=${payload.deleted_posts}, comments=${payload.deleted_comments}, post_assets=${payload.deleted_post_assets}, comment_assets=${payload.deleted_comment_assets}`, "ok");
     setWorkspaceStatus(`已执行 ${days} 天阈值清理。`);
     await loadStatus();
+  };
+
+  const reconcileCounts = async () => {
+    const payload = await api("/api/admin/maintenance/reconcile-interaction-counts", { method: "POST" });
+    log(`互动计数修复完成：帖子点赞=${payload.fixed_post_likes}, 帖子评论=${payload.fixed_post_comments}, 评论点赞=${payload.fixed_comment_likes}`, "ok");
+    setWorkspaceStatus("帖子与评论互动计数已按真实明细重新校准。");
+    await Promise.all([loadStatus(), loadEvolutionOverview()]);
   };
 
   const askDebug = async () => {
@@ -761,7 +1031,7 @@
 
   const refreshAll = async () => {
     setWorkspaceStatus("正在同步后台数据...");
-    await Promise.all([loadStatus(), loadConfig(), loadKb(), loadTasks(), loadLogs(), loadAdoptions(), loadEvolutionReviews()]);
+    await Promise.all([loadStatus(), loadConfig(), loadKb(), loadTasks(), loadLogs(), loadAdoptions(), loadEvolutionReviews(), loadEvolutionOverview()]);
     await loadDocs();
     renderOpsSummary();
     setWorkspaceStatus("数据已同步，可继续切换模块工作。");
@@ -794,8 +1064,10 @@
     byId("btnLoadLogs")?.addEventListener("click", () => withAction("刷新日志", loadLogs));
     byId("btnRunEvolution")?.addEventListener("click", () => withAction("执行高质量回灌", runEvolution));
     byId("btnRunCleanup")?.addEventListener("click", () => withAction("执行过期清理", runCleanup));
+    byId("btnReconcileCounts")?.addEventListener("click", () => withAction("修复互动计数", reconcileCounts));
     byId("btnLoadEvolutionReviews")?.addEventListener("click", () => withAction("刷新 AI 审核记录", loadEvolutionReviews));
     byId("btnLoadAdoptions")?.addEventListener("click", () => withAction("刷新论坛采纳记录", loadAdoptions));
+    byId("btnRepairAdoptions")?.addEventListener("click", () => withAction("修复采纳流水", repairAdoptions));
     byId("docKbSelect")?.addEventListener("change", () => withAction("刷新文档", loadDocs));
     document.querySelectorAll(".workspace-nav-btn").forEach((node) => node.addEventListener("click", () => setActiveScreen(node.dataset.screen)));
 
@@ -803,6 +1075,11 @@
       const openButton = event.target.closest("[data-open-screen]");
       if (openButton) {
         setActiveScreen(openButton.dataset.openScreen);
+        return;
+      }
+      const openKbDocsButton = event.target.closest("[data-action='open-kb-docs']");
+      if (openKbDocsButton) {
+        withAction("打开知识库内容", () => openKbDocuments(openKbDocsButton.dataset.id));
         return;
       }
       const deleteButton = event.target.closest("[data-action='delete-kb']");
@@ -813,6 +1090,25 @@
       const retryButton = event.target.closest("[data-action='retry-task']");
       if (retryButton) {
         withAction("重试任务", () => retryTask(retryButton.dataset.id));
+        return;
+      }
+      const openDocButton = event.target.closest("[data-action='open-document']");
+      if (openDocButton) {
+        withAction("打开文档", () => openDocument(openDocButton.dataset.id));
+        return;
+      }
+      const deleteDocButton = event.target.closest("[data-action='delete-document']");
+      if (deleteDocButton) {
+        withAction("移除文档", () => deleteDocument(deleteDocButton.dataset.id));
+        return;
+      }
+      if (event.target.closest("#btnSaveDocContent")) {
+        withAction("保存文档", saveSelectedDocument);
+        return;
+      }
+      if (event.target.closest("#btnDeleteDocContent")) {
+        const id = state.selectedDocument?.document?.id;
+        if (id) withAction("移除文档", () => deleteDocument(id));
         return;
       }
       const pagerButton = event.target.closest("[data-pager-key]");
@@ -848,6 +1144,7 @@
     }
     bindEvents();
     setActiveScreen(window.location.hash, { updateHash: false });
+    renderDocumentEditor();
     renderOpsSummary();
     log("已进入新的管理工作台，开始同步后台数据。", "ok");
     await withAction("初始化加载", refreshAll);

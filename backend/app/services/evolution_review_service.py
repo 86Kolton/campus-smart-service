@@ -40,28 +40,12 @@ class EvolutionReviewService:
     _BAD_HINTS = ("测试", "test", "111", "占位", "哈哈", "随便", "顶")
 
     def _provider_config(self) -> dict:
-        provider = str(settings.evolution_ai_review_provider or "qa_reuse").strip().lower()
-        if provider in {"", "qa_reuse"}:
-            return {
-                "provider": "qa_reuse",
-                "base_url": str(settings.evolution_ai_review_base_url or settings.qa_base_url or "").strip().rstrip("/"),
-                "api_key": str(settings.evolution_ai_review_api_key or settings.qa_api_key or "").strip(),
-                "model": str(settings.evolution_ai_review_model or settings.qa_model or "").strip(),
-                "timeout": max(
-                    5,
-                    int(
-                        settings.evolution_ai_review_timeout_seconds
-                        or settings.qa_timeout_seconds
-                        or 25
-                    ),
-                ),
-            }
-
+        provider = settings.evolution_ai_review_provider_effective
         return {
             "provider": provider,
-            "base_url": str(settings.evolution_ai_review_base_url or "").strip().rstrip("/"),
-            "api_key": str(settings.evolution_ai_review_api_key or "").strip(),
-            "model": str(settings.evolution_ai_review_model or "").strip(),
+            "base_url": settings.evolution_ai_review_base_url_effective.rstrip("/"),
+            "api_key": settings.evolution_ai_review_api_key_effective,
+            "model": settings.evolution_ai_review_model_effective,
             "timeout": max(5, int(settings.evolution_ai_review_timeout_seconds or 25)),
         }
 

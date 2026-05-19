@@ -85,6 +85,7 @@ class TaskService:
             )
             return self._update_task(task_id, status="success", error_message="")
         except Exception as exc:
+            document_service.update_status(document_id, "failed", str(exc))
             return self._update_task(task_id, status="failed", error_message=str(exc))
 
     def retry_task(self, task_id: int, content: bytes | None = None) -> dict | None:
