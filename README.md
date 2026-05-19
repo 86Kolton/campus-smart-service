@@ -145,6 +145,17 @@ Copy-Item .\backend\.env.example .\backend\.env
 - 使用自己的 `AppID` 或测试号导入
 - 配置合法域名与 API 地址
 
+### 7. 构建本地演示控制台 EXE（可选）
+
+仓库不提交本地 EXE 二进制和 `_internal` 运行时目录；如果服务器临时不可用，可在克隆后的本地环境中重新打包：
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install pyinstaller pillow
+.\.venv\Scripts\python.exe .\tools\build_local_demo_exe.py
+```
+
+生成结果位于 `本地演示EXE/`。双击 `启动本地演示.exe` 会以无黑框控制台启动本地前后端，关闭控制台会自动停止本地 `8000/5173` 服务。
+
 ## 从 GitHub 克隆后快速部署
 
 仓库不提交生产数据库、上传文件、`.env`、论文文档、截图和服务器备份。重新部署时按下面流程用代码和种子脚本恢复演示环境：

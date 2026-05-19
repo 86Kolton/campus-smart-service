@@ -1,6 +1,14 @@
 .venv/
+__pycache__/
 node_modules/
 .npm-cache/
+.pip-cache/
+.pyinstaller-cache/
+.pyinstaller-build/
+.pyinstaller-spec/
+local-demo-logs/
+本地演示EXE/
+微信小程序预览图/
 ops/recovery/bundles/
 .codex-output/
 test-results/
