@@ -11,6 +11,11 @@ const {
 
 const PREFILL_SEARCH_KEY = "prefill_search_query";
 
+const HOME_HOT_TITLE = "首页 24 小时热帖";
+const HOME_HOT_FALLBACK_TITLE = "首页近期高热";
+const HOME_HOT_EMPTY_DESC = "今日话题：校园动态实时更新中";
+const HOME_HOT_FALLBACK_DESC = "近24小时暂无新增，当前展示近期高热帖子。";
+
 const QUICK_ENTRANCES = [
   { id: "edu", title: "今日课表", sub: "空档与调课提醒", tone: "blue", action: "edu", eduAction: "schedule", todayOnly: "1" },
   { id: "task", title: "跑腿任务", sub: "代取代送快捷入口", tone: "sand", action: "errand" },
@@ -150,6 +155,49 @@ function buildHotPosts(items = []) {
     }));
 }
 
+function buildHotTopicDesc(hotPosts = [], isFallback = false) {
+  if (isFallback) {
+    return HOME_HOT_FALLBACK_DESC;
+  }
+  const topTitle = hotPosts[0] && hotPosts[0].title ? String(hotPosts[0].title) : "";
+  return topTitle ? `今日话题：${topTitle}` : HOME_HOT_EMPTY_DESC;
+}
+
+function buildHotWindowState(hotPosts = [], isFallback = false) {
+  return {
+    hotWindowTitle: isFallback ? HOME_HOT_FALLBACK_TITLE : HOME_HOT_TITLE,
+    hotTopicDesc: buildHotTopicDesc(hotPosts, isFallback)
+  };
+}
+
+function normalizeHomeHotTopic(item = {}, index = 0) {
+  const title = String(item.title || "").trim();
+  const postId = normalizePostId(item.post_id || item.postId || "");
+  if (!title || !postId) {
+    return null;
+  }
+
+  return {
+    id: postId,
+    rank: index + 1,
+    title,
+    heat: String(item.heat || ""),
+    isRecent: item.is_recent !== false && item.isRecent !== false
+  };
+}
+
+function buildRemoteHotPosts(payload) {
+  const rawItems = Array.isArray(payload && payload.items) ? payload.items : [];
+  const hotPosts = rawItems
+    .map((item, index) => normalizeHomeHotTopic(item, index))
+    .filter(Boolean)
+    .slice(0, 3);
+  return {
+    hotPosts,
+    isFallback: hotPosts.length > 0 && hotPosts.every((item) => item.isRecent === false)
+  };
+}
+
 Page({
   data: {
     greetingName: buildGreetingName("赵毅"),
@@ -159,6 +207,8 @@ Page({
     serviceStatus: "在线",
     serviceDesc: "社区动态、课程提醒与知识库问答已联动，热点变化会实时反映到推荐与检索结果。",
     hotTopic: "今晚哪里自习最安静？",
+    hotWindowTitle: HOME_HOT_TITLE,
+    hotTopicDesc: buildHotTopicDesc(buildHotPosts([])),
     hotPosts: buildHotPosts([]),
     quickEntrances: QUICK_ENTRANCES,
     feedFilters: FEED_FILTERS,
@@ -231,16 +281,21 @@ Page({
     } catch (error) {}
 
     try {
-      const data = await apiRequest({ url: "/api/client/feed/list?filter=all", method: "GET" });
-      const rawItems = Array.isArray(data && data.items)
-        ? data.items.map((item, index) => normalizeFeedItem(item, index))
+      const [feedData, hotData] = await Promise.all([
+        apiRequest({ url: "/api/client/feed/list?filter=all", method: "GET" }),
+        apiRequest({ url: "/api/client/home/hot-topics", method: "GET" }).catch(() => null)
+      ]);
+      const rawItems = Array.isArray(feedData && feedData.items)
+        ? feedData.items.map((item, index) => normalizeFeedItem(item, index))
         : [];
       const items = sanitizeFeed(rawItems);
       const nextFeed = items.length ? items : buildFallbackFeed();
-      const hotPosts = buildHotPosts(nextFeed);
+      const remoteHotState = buildRemoteHotPosts(hotData);
+      const hotPosts = remoteHotState.hotPosts.length ? remoteHotState.hotPosts : buildHotPosts(nextFeed);
       this.setData({
         greetingName: buildGreetingName(getClientDisplayName("赵毅")),
         hotPosts,
+        ...buildHotWindowState(hotPosts, remoteHotState.isFallback),
         hotTopic: hotPosts[0] ? hotPosts[0].title : this.data.hotTopic,
         feedItems: nextFeed,
         loading: false
@@ -253,6 +308,7 @@ Page({
         serviceStatus: "离线",
         serviceDesc: "当前接口波动，已切换到示例内容预览。",
         hotPosts,
+        ...buildHotWindowState(hotPosts),
         hotTopic: hotPosts[0] ? hotPosts[0].title : this.data.hotTopic,
         feedItems: fallbackFeed,
         loading: false
@@ -344,7 +400,8 @@ Page({
 
     this.setData({ feedBusyId: id, feedItems: nextFeedItems });
     this.applyFilter(this.data.activeFilter, nextFeedItems);
-    this.setData({ hotPosts: buildHotPosts(nextFeedItems) });
+    const nextHotPosts = buildHotPosts(nextFeedItems);
+    this.setData({ hotPosts: nextHotPosts, ...buildHotWindowState(nextHotPosts) });
 
     try {
       const resp = await apiRequest({
@@ -364,7 +421,8 @@ Page({
 
       this.setData({ feedItems: confirmedFeedItems, feedBusyId: "" });
       this.applyFilter(this.data.activeFilter, confirmedFeedItems);
-      this.setData({ hotPosts: buildHotPosts(confirmedFeedItems) });
+      const confirmedHotPosts = buildHotPosts(confirmedFeedItems);
+      this.setData({ hotPosts: confirmedHotPosts, ...buildHotWindowState(confirmedHotPosts) });
     } catch (error) {
       this.setData({ feedBusyId: "" });
       this.loadHome();
