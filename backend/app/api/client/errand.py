@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.deps import ClientIdentity, require_client_identity
+from app.api.deps import ClientIdentity, require_client_identity, require_wechat_bound_client
 from app.schemas.client import (
     CreateErrandRequest,
     CreateErrandResponse,
@@ -50,7 +50,7 @@ async def list_my_errands(identity: ClientIdentity = Depends(require_client_iden
 @router.post("/errands", response_model=CreateErrandResponse)
 async def create_errand(
     payload: CreateErrandRequest,
-    identity: ClientIdentity = Depends(require_client_identity),
+    identity: ClientIdentity = Depends(require_wechat_bound_client),
 ) -> CreateErrandResponse:
     try:
         item = errand_service.create_task(
@@ -72,7 +72,7 @@ async def create_errand(
 @router.post("/errands/action", response_model=UpdateErrandStatusResponse)
 async def update_errand_status(
     payload: UpdateErrandStatusRequest,
-    identity: ClientIdentity = Depends(require_client_identity),
+    identity: ClientIdentity = Depends(require_wechat_bound_client),
 ) -> UpdateErrandStatusResponse:
     try:
         result = errand_service.apply_action(task_id=payload.task_id, action=payload.action, user_id=identity.user_id)

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.api.deps import ClientIdentity, require_client_identity
+from app.api.deps import ClientIdentity, require_client_identity, require_wechat_bound_client
 from app.core.config import settings
 from app.core.security import create_access_token, create_refresh_token, decode_access_token
 from app.schemas.client import (
@@ -27,9 +27,14 @@ router = APIRouter()
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
+def _bind_state(wechat_bound: bool) -> str:
+    return "已绑定微信身份" if wechat_bound else "未绑定微信身份"
+
+
 def _issue_client_tokens(user_id: int, username: str, display_name: str) -> ClientLoginResponse:
     user = user_service.get_user(int(user_id))
     public_name = user_service.get_public_name(user) if user else user_service.build_default_public_name(display_name)
+    wechat_bound = bool(user and str(user.wechat_openid or "").strip())
     access_token = create_access_token(
         subject=username,
         token_type="client",
@@ -52,6 +57,8 @@ def _issue_client_tokens(user_id: int, username: str, display_name: str) -> Clie
         username=username,
         display_name=display_name,
         public_name=public_name,
+        wechat_bound=wechat_bound,
+        bind_state=_bind_state(wechat_bound),
     )
 
 
@@ -106,6 +113,8 @@ async def client_me(identity: ClientIdentity = Depends(require_client_identity))
         username=user.username,
         display_name=user_service.get_visible_profile_name(user),
         public_name=user_service.get_public_name(user),
+        wechat_bound=bool(str(user.wechat_openid or "").strip()),
+        bind_state=_bind_state(bool(str(user.wechat_openid or "").strip())),
         role=user.role,
         status=user.status,
     )
@@ -206,7 +215,7 @@ async def client_wechat_bind(
 
 @router.post("/auth/web-login-code", response_model=WebLoginCodeResponse)
 async def create_web_login_code(
-    identity: ClientIdentity = Depends(require_client_identity),
+    identity: ClientIdentity = Depends(require_wechat_bound_client),
 ) -> WebLoginCodeResponse:
     return WebLoginCodeResponse(**web_login_code_service.create_code(user_id=identity.user_id))
 

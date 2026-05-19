@@ -34,9 +34,13 @@ Page({
         expiresAt: String((result && result.expires_at) || "")
       });
     } catch (error) {
+      const raw = String((error && error.message) || "");
+      const message = raw.includes("wechat_bind_required")
+        ? "请先在“我的”页完成微信登录/绑定，再生成网页登录码"
+        : (raw || "生成登录码失败");
       this.setData({
         loading: false,
-        error: (error && error.message) || "生成登录码失败",
+        error: message,
         code: "",
         expiresIn: 0,
         expiresAt: ""

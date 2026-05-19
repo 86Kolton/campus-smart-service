@@ -22,6 +22,8 @@ class ClientLoginResponse(BaseModel):
     username: str
     display_name: str
     public_name: str
+    wechat_bound: bool = False
+    bind_state: str = ""
 
 
 class ClientMeResponse(BaseModel):
@@ -29,6 +31,8 @@ class ClientMeResponse(BaseModel):
     username: str
     display_name: str
     public_name: str
+    wechat_bound: bool = False
+    bind_state: str = ""
     role: str
     status: str
 

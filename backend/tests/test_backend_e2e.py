@@ -62,6 +62,15 @@ def _client_login(client: TestClient, username: str = "zhaoyi") -> dict:
     raise AssertionError(f"client login failed for {username}")
 
 
+def _bind_wechat_for_test(client: TestClient, headers: dict[str, str], label: str) -> None:
+    response = client.post(
+        "/api/client/auth/wechat/bind",
+        json={"code": f"pytest-bind-{label}-{uuid4().hex}"},
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+
+
 def test_backend_e2e_flow() -> None:
     with TestClient(app) as client:
         seed_local_documents(kb_id=1, ensure_bootstrap=False, force_reindex=True)
@@ -72,6 +81,7 @@ def test_backend_e2e_flow() -> None:
 
         client_login = _client_login(client, username="zhaoyi")
         assert client_login.get("public_name")
+        assert client_login.get("wechat_bound") is True
         client_token = str(client_login.get("access_token", ""))
         client_refresh = str(client_login.get("refresh_token", ""))
         assert client_token
@@ -125,6 +135,20 @@ def test_backend_e2e_flow() -> None:
         assert c_register.status_code == 200, c_register.text
         c_token = str(c_register.json().get("access_token", ""))
         c_headers = {"Authorization": f"Bearer {c_token}"}
+
+        unbound_post = client.post(
+            "/api/client/feed/post/create",
+            json={
+                "category": "study",
+                "title": "unbound user should not post",
+                "content": "wechat binding is required before public writes",
+                "tags": ["security"],
+            },
+            headers=b_headers,
+        )
+        assert unbound_post.status_code == 403
+        assert unbound_post.json().get("detail") == "wechat_bind_required"
+        _bind_wechat_for_test(client, b_headers, "flow-b")
 
         a_comment = client.post(
             "/api/client/feed/comment/create",
@@ -621,6 +645,8 @@ def test_deleted_post_and_comment_cleanup_message_counts() -> None:
         assert b_register.status_code == 200, b_register.text
         a_headers = {"Authorization": f"Bearer {a_register.json()['access_token']}"}
         b_headers = {"Authorization": f"Bearer {b_register.json()['access_token']}"}
+        _bind_wechat_for_test(client, a_headers, "delete-a")
+        _bind_wechat_for_test(client, b_headers, "delete-b")
 
         created = client.post(
             "/api/client/feed/post/create",
@@ -741,6 +767,8 @@ def test_duplicate_comment_text_likes_are_all_listed() -> None:
         assert liker.status_code == 200, liker.text
         author_headers = {"Authorization": f"Bearer {author.json()['access_token']}"}
         liker_headers = {"Authorization": f"Bearer {liker.json()['access_token']}"}
+        _bind_wechat_for_test(client, author_headers, "dup-author")
+        _bind_wechat_for_test(client, liker_headers, "dup-liker")
 
         post = client.post(
             "/api/client/feed/post/create",
@@ -807,6 +835,9 @@ def test_adoption_prune_and_maintenance_cleanup_cascade_related_rows() -> None:
         a_headers = {"Authorization": f"Bearer {a_register.json()['access_token']}"}
         b_headers = {"Authorization": f"Bearer {b_register.json()['access_token']}"}
         c_headers = {"Authorization": f"Bearer {c_register.json()['access_token']}"}
+        _bind_wechat_for_test(client, a_headers, "cascade-a")
+        _bind_wechat_for_test(client, b_headers, "cascade-b")
+        _bind_wechat_for_test(client, c_headers, "cascade-c")
 
         first_post = client.post(
             "/api/client/feed/post/create",

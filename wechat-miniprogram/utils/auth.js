@@ -80,6 +80,32 @@ async function loginWithWechat(code, displayName = "") {
   return normalizeClientPayload(data, false);
 }
 
+function requestWechatLoginCode() {
+  if (typeof wx === "undefined" || typeof wx.login !== "function") {
+    return Promise.reject(new Error("微信登录能力不可用"));
+  }
+  return new Promise((resolve, reject) => {
+    wx.login({
+      success(res) {
+        const code = String((res && res.code) || "").trim();
+        if (!code) {
+          reject(new Error("未获取到微信登录凭证"));
+          return;
+        }
+        resolve(code);
+      },
+      fail(error) {
+        reject(error || new Error("微信登录失败"));
+      }
+    });
+  });
+}
+
+async function loginWithWechatRuntime(displayName = "") {
+  const code = await requestWechatLoginCode();
+  return loginWithWechat(code, displayName);
+}
+
 async function bindWechat(code) {
   const textCode = String(code || "").trim();
   if (!textCode) throw new Error("未获取到微信登录凭证");
@@ -98,20 +124,29 @@ async function fetchClientMe() {
 async function ensureClientSession() {
   const tokenInfo = getTokenInfo();
   if (tokenInfo.accessToken) {
-    if (tokenInfo.displayName || tokenInfo.publicName) return { ...tokenInfo, guest: false };
+    if (tokenInfo.wechatBound) return { ...tokenInfo, guest: false };
     try {
       const me = await fetchClientMe();
-      return normalizeClientPayload({
+      const current = normalizeClientPayload({
         access_token: tokenInfo.accessToken,
         refresh_token: tokenInfo.refreshToken,
         user_id: me.user_id,
         username: me.username,
         display_name: me.display_name,
-        public_name: me.public_name
+        public_name: me.public_name,
+        wechat_bound: me.wechat_bound,
+        bind_state: me.bind_state
       }, false);
+      if (current.wechatBound) return current;
     } catch (error) {
       if (!isNotFoundError(error)) throw error;
     }
+  }
+
+  try {
+    return await loginWithWechatRuntime(tokenInfo.displayName || tokenInfo.publicName || "");
+  } catch (error) {
+    // Keep the guest path as a degraded fallback for local demos or unconfigured WeChat credentials.
   }
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -139,13 +174,13 @@ async function ensureClientSession() {
         continue;
       }
       if (isNotFoundError(error)) {
-        return { accessToken: "", refreshToken: "", userId: 0, username: "", displayName: "", publicName: "", guest: true };
+        return { accessToken: "", refreshToken: "", userId: 0, username: "", displayName: "", publicName: "", wechatBound: false, bindState: "", guest: true };
       }
       throw error;
     }
   }
 
-  return { accessToken: "", refreshToken: "", userId: 0, username: "", displayName: "", publicName: "", guest: true };
+  return { accessToken: "", refreshToken: "", userId: 0, username: "", displayName: "", publicName: "", wechatBound: false, bindState: "", guest: true };
 }
 
 module.exports = { bindWechat, ensureClientSession, loginWithGuest, loginWithWechat, registerGuest };

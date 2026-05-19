@@ -79,6 +79,23 @@ def auth_headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+def bind_wechat_for_validation(
+    client: httpx.Client,
+    runner: ValidationRunner,
+    *,
+    token: str,
+    label: str,
+) -> bool:
+    resp = client.post(
+        "/api/client/auth/wechat/bind",
+        headers=auth_headers(token),
+        json={"code": f"validation-{label}-{now_suffix()}"},
+    )
+    ok, detail = ensure_ok(resp, 200)
+    runner.add("auth", f"bind-wechat-{label}", ok, detail)
+    return ok
+
+
 def build_users() -> tuple[dict[str, str], dict[str, str]]:
     suffix = now_suffix()
     user_a = {
@@ -187,6 +204,11 @@ def validation_flow(
             b_payload = reg_b.json() if ok else {}
             b_token = str(b_payload.get("access_token", ""))
             runner.add("auth", "register-b-token", bool(b_token), "missing token" if not b_token else "")
+
+            if a_token:
+                bind_wechat_for_validation(client, runner, token=a_token, label="a")
+            if b_token:
+                bind_wechat_for_validation(client, runner, token=b_token, label="b")
 
             me_a = client.get("/api/client/auth/me", headers=auth_headers(a_token))
             ok, detail = ensure_ok(me_a, 200)

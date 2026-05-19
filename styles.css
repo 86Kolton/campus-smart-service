@@ -2331,6 +2331,17 @@ textarea {
   color: #45627f;
 }
 
+.wechat-required-hero {
+  border-color: #c8d9ef;
+  background:
+    radial-gradient(circle at 14% 20%, rgba(73, 133, 192, 0.15), transparent 34%),
+    linear-gradient(145deg, #f8fbff, #eef6ff 68%, #f7fbff);
+}
+
+.wechat-required-panel .wechat-auth-benefits {
+  margin-top: 2px;
+}
+
 .wechat-auth-steps {
   display: grid;
   gap: 8px;

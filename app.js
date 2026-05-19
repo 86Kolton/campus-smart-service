@@ -977,7 +977,10 @@ const defaultState = {
     refreshToken: loadClientRefreshToken(),
     userId: 0,
     username: '',
-    displayName: ''
+    displayName: '',
+    publicName: '',
+    wechatBound: false,
+    bindState: ''
   }
 };
 
@@ -1159,7 +1162,10 @@ function loadState() {
           refreshToken: String(parsed.clientAuth.refreshToken || loadClientRefreshToken() || ''),
           userId: Number(parsed.clientAuth.userId || 0),
           username: String(parsed.clientAuth.username || ''),
-          displayName: String(parsed.clientAuth.displayName || '')
+          displayName: String(parsed.clientAuth.displayName || ''),
+          publicName: String(parsed.clientAuth.publicName || ''),
+          wechatBound: Boolean(parsed.clientAuth.wechatBound || parsed.clientAuth.wechat_bound),
+          bindState: String(parsed.clientAuth.bindState || parsed.clientAuth.bind_state || '')
         }
       : { ...defaultState.clientAuth };
     return {
@@ -1343,6 +1349,82 @@ function getClientAuthHeader() {
   return { Authorization: `Bearer ${token}` };
 }
 
+function getPayloadValue(payload = {}, snakeKey = '', camelKey = '', fallback = '') {
+  if (Object.prototype.hasOwnProperty.call(payload, snakeKey)) {
+    return payload[snakeKey];
+  }
+  if (camelKey && Object.prototype.hasOwnProperty.call(payload, camelKey)) {
+    return payload[camelKey];
+  }
+  return fallback;
+}
+
+function updateClientAuthFromPayload(payload = {}, fallback = {}) {
+  const source = payload && typeof payload === 'object' ? payload : {};
+  const base = fallback && typeof fallback === 'object' ? fallback : {};
+  const wechatBound = Boolean(getPayloadValue(source, 'wechat_bound', 'wechatBound', base.wechatBound || false));
+  const nextAuth = {
+    token: String(getPayloadValue(source, 'access_token', 'token', base.token || '')),
+    refreshToken: String(getPayloadValue(source, 'refresh_token', 'refreshToken', base.refreshToken || '')),
+    userId: Number(getPayloadValue(source, 'user_id', 'userId', base.userId || 0)),
+    username: String(getPayloadValue(source, 'username', 'username', base.username || '')),
+    displayName: String(getPayloadValue(source, 'display_name', 'displayName', base.displayName || '')),
+    publicName: String(getPayloadValue(source, 'public_name', 'publicName', base.publicName || '')),
+    wechatBound,
+    bindState: String(getPayloadValue(source, 'bind_state', 'bindState', base.bindState || (wechatBound ? '已绑定微信身份' : '未绑定微信身份')))
+  };
+  appState.clientAuth = nextAuth;
+  return nextAuth;
+}
+
+function hasWechatBound() {
+  return Boolean(appState.clientAuth && appState.clientAuth.wechatBound);
+}
+
+function getWechatBindRequiredBody(contextLabel = '继续操作') {
+  const safeContext = escapeHtml(String(contextLabel || '继续操作'));
+  return `
+    <div class="wechat-auth-panel wechat-required-panel">
+      <div class="wechat-auth-hero wechat-required-hero">
+        <strong>${safeContext}需要先完成微信绑定</strong>
+        <p>为了保护校园社区身份可信，网页端发帖、评论、点赞、收藏和跑腿操作都需要先通过小程序微信身份互通。你仍然可以继续浏览帖子、搜索内容和使用知识库问答。</p>
+      </div>
+      <div class="wechat-auth-steps">
+        <div class="wechat-auth-step"><span>1</span><p>打开微信小程序，进入“我的”页。</p></div>
+        <div class="wechat-auth-step"><span>2</span><p>点击“网页互通登录”，复制一次性登录码。</p></div>
+        <div class="wechat-auth-step"><span>3</span><p>回到网页端粘贴登录码，完成绑定后即可互动。</p></div>
+      </div>
+      <div class="wechat-auth-benefits">
+        <span class="wechat-auth-benefit">身份可信</span>
+        <span class="wechat-auth-benefit">同账号互通</span>
+        <span class="wechat-auth-benefit">消息同步</span>
+        <span class="wechat-auth-benefit">数据更安全</span>
+      </div>
+    </div>
+  `;
+}
+
+function openWechatRequiredSheet(contextLabel = '继续操作') {
+  openSubpageSheet({
+    title: '请先绑定微信',
+    subtitle: '网页端互动保护',
+    body: getWechatBindRequiredBody(contextLabel),
+    actionLabel: '去互通登录',
+    action: () => {
+      openWechatAuthPage();
+      return false;
+    }
+  });
+}
+
+function requireWechatBoundAction(contextLabel = '继续操作') {
+  if (hasWechatBound()) {
+    return true;
+  }
+  openWechatRequiredSheet(contextLabel);
+  return false;
+}
+
 async function loginClient(username, password) {
   const data = await apiRequest(API_CONFIG.endpoints.clientLogin, {
     method: 'POST',
@@ -1353,13 +1435,7 @@ async function loginClient(username, password) {
   if (!data || !data.access_token) {
     return null;
   }
-  appState.clientAuth = {
-    token: String(data.access_token),
-    refreshToken: String(data.refresh_token || ''),
-    userId: Number(data.user_id || 0),
-    username: String(data.username || ''),
-    displayName: String(data.display_name || '')
-  };
+  updateClientAuthFromPayload(data, appState.clientAuth);
   saveClientToken(appState.clientAuth.token);
   saveClientRefreshToken(appState.clientAuth.refreshToken);
   saveState();
@@ -1382,13 +1458,7 @@ async function registerClient(username, password, displayName) {
   if (!data || !data.access_token) {
     return null;
   }
-  appState.clientAuth = {
-    token: String(data.access_token),
-    refreshToken: String(data.refresh_token || ''),
-    userId: Number(data.user_id || 0),
-    username: String(data.username || ''),
-    displayName: String(data.display_name || '')
-  };
+  updateClientAuthFromPayload(data, appState.clientAuth);
   saveClientToken(appState.clientAuth.token);
   saveClientRefreshToken(appState.clientAuth.refreshToken);
   saveState();
@@ -1415,13 +1485,10 @@ async function refreshClientSession() {
   if (!data || !data.access_token) {
     return null;
   }
-  appState.clientAuth = {
-    token: String(data.access_token),
-    refreshToken: String(data.refresh_token || refreshToken),
-    userId: Number(data.user_id || appState.clientAuth.userId || 0),
-    username: String(data.username || appState.clientAuth.username || ''),
-    displayName: String(data.display_name || appState.clientAuth.displayName || '')
-  };
+  updateClientAuthFromPayload(data, {
+    ...appState.clientAuth,
+    refreshToken
+  });
   saveClientToken(appState.clientAuth.token);
   saveClientRefreshToken(appState.clientAuth.refreshToken);
   saveState();
@@ -1482,13 +1549,7 @@ async function ensureClientSession() {
   if (appState.clientAuth && appState.clientAuth.token) {
     const me = await apiRequest(API_CONFIG.endpoints.clientMe, { method: 'GET' });
     if (me && typeof me === 'object') {
-      appState.clientAuth = {
-        token: appState.clientAuth.token,
-        refreshToken: appState.clientAuth.refreshToken,
-        userId: Number(me.user_id || appState.clientAuth.userId || 0),
-        username: String(me.username || appState.clientAuth.username || ''),
-        displayName: String(me.display_name || appState.clientAuth.displayName || '')
-      };
+      updateClientAuthFromPayload(me, appState.clientAuth);
       saveState();
       syncUserScopedLikes();
       syncHeaderGreeting();
@@ -1550,6 +1611,9 @@ async function bindWechat() {
     body: JSON.stringify({ code })
   });
   if (resp && resp.ok) {
+    appState.clientAuth.wechatBound = true;
+    appState.clientAuth.bindState = '已绑定微信身份';
+    saveState();
     showToast('微信绑定成功');
     const remoteProfile = await apiAdapter.fetchProfileSummary();
     if (remoteProfile) {
@@ -1575,6 +1639,9 @@ async function bindWechatByCode(code) {
     body: JSON.stringify({ code: safeCode })
   });
   if (resp && resp.ok) {
+    appState.clientAuth.wechatBound = true;
+    appState.clientAuth.bindState = '已绑定微信身份';
+    saveState();
     showToast('微信绑定成功');
     const remoteProfile = await apiAdapter.fetchProfileSummary();
     if (remoteProfile) {
@@ -1608,13 +1675,7 @@ async function loginWithWechatCode(code, displayName = '') {
     return false;
   }
 
-  appState.clientAuth = {
-    token: String(data.access_token),
-    refreshToken: String(data.refresh_token || ''),
-    userId: Number(data.user_id || 0),
-    username: String(data.username || ''),
-    displayName: String(data.display_name || '')
-  };
+  updateClientAuthFromPayload(data, appState.clientAuth);
   saveClientToken(appState.clientAuth.token);
   saveClientRefreshToken(appState.clientAuth.refreshToken);
   saveState();
@@ -1631,24 +1692,24 @@ async function loginWithWechatCode(code, displayName = '') {
 function openWechatAuthPage() {
   openSubpageSheet({
     title: '账号互通',
-    subtitle: '小程序与网页端共用同一账号',
+    subtitle: '绑定后才能在网页端互动',
     body: `
       <div class="wechat-auth-panel">
         <div class="wechat-auth-hero">
           <strong>微信互通登录</strong>
-          <p>网页端会接入你在小程序里的同一个账号，帖子、收藏、消息和知识对话记录都会保持联通。</p>
+          <p>网页端浏览和搜索不受影响；发帖、评论、点赞、收藏和跑腿等互动操作，需要先通过小程序微信身份互通，确保账号可信、数据同步、操作可追溯。</p>
         </div>
         <div class="wechat-auth-steps">
-          <div class="wechat-auth-step"><span>1</span><p>打开小程序“我的”页，进入“网页互通登录”。</p></div>
-          <div class="wechat-auth-step"><span>2</span><p>复制小程序生成的一次性登录码。</p></div>
-          <div class="wechat-auth-step"><span>3</span><p>把登录码粘贴到这里，完成网页端登录。</p></div>
+          <div class="wechat-auth-step"><span>1</span><p>打开微信小程序“我的”页，确认已完成微信登录。</p></div>
+          <div class="wechat-auth-step"><span>2</span><p>进入“网页互通登录”，复制小程序生成的一次性登录码。</p></div>
+          <div class="wechat-auth-step"><span>3</span><p>把登录码粘贴到这里，网页端会自动切换到同一个微信绑定账号。</p></div>
         </div>
         <input id="webLoginCodeInput" type="text" maxlength="12" placeholder="请输入小程序生成的登录码" />
         <div class="wechat-auth-benefits">
+          <span class="wechat-auth-benefit">先绑定再互动</span>
           <span class="wechat-auth-benefit">同账号</span>
-          <span class="wechat-auth-benefit">同收藏</span>
           <span class="wechat-auth-benefit">同消息</span>
-          <span class="wechat-auth-benefit">同知识记录</span>
+          <span class="wechat-auth-benefit">更安全</span>
         </div>
       </div>
     `,
@@ -1898,6 +1959,18 @@ async function apiRequest(path, options = {}) {
         }
 
         if (response.status === 403) {
+          let detail = '';
+          try {
+            const payload = await response.json();
+            detail = String(payload && payload.detail ? payload.detail : '');
+          } catch (error) {
+            detail = '';
+          }
+          if (detail.includes('wechat_bind_required')) {
+            openWechatRequiredSheet(options.wechatContext || '继续操作');
+            notifyApiIssue('请先通过小程序完成微信绑定，再继续互动');
+            return null;
+          }
           setNetworkHint('local');
           notifyApiIssue('操作无权限或鉴权失败');
           return null;
@@ -2068,6 +2141,7 @@ const apiAdapter = {
   async toggleFeedLike(postId, liked) {
     const data = await apiRequest(API_CONFIG.endpoints.feedLike, {
       method: 'POST',
+      wechatContext: '点赞帖子',
       body: JSON.stringify({ post_id: postId, liked: Boolean(liked) })
     });
     if (!data || typeof data !== 'object') {
@@ -2150,11 +2224,13 @@ const apiAdapter = {
       data = await apiRequest(API_CONFIG.endpoints.feedCommentCreateWithImage, {
         method: 'POST',
         body: form,
+        wechatContext: replyTarget ? '回复评论' : '发表评论',
         retries: 0
       });
     } else {
       data = await apiRequest(API_CONFIG.endpoints.feedCommentCreate, {
         method: 'POST',
+        wechatContext: replyTarget ? '回复评论' : '发表评论',
         body: JSON.stringify({
           post_id: postId,
           content,
@@ -2190,6 +2266,7 @@ const apiAdapter = {
   async toggleCommentLike(commentId, liked) {
     const data = await apiRequest(API_CONFIG.endpoints.feedCommentLike, {
       method: 'POST',
+      wechatContext: '点赞评论',
       body: JSON.stringify({ comment_id: String(commentId || ''), liked: Boolean(liked) })
     });
     if (!data || typeof data !== 'object') {
@@ -2205,6 +2282,7 @@ const apiAdapter = {
   async deleteComment(postId, commentId) {
     const data = await apiRequest(API_CONFIG.endpoints.feedCommentDelete, {
       method: 'POST',
+      wechatContext: '删除评论',
       body: JSON.stringify({ post_id: String(postId || ''), comment_id: String(commentId || '') })
     });
     if (!data || typeof data !== 'object') {
@@ -2237,11 +2315,13 @@ const apiAdapter = {
       data = await apiRequest(API_CONFIG.endpoints.feedPostCreateWithImage, {
         method: 'POST',
         body: form,
+        wechatContext: '发布帖子',
         retries: 0
       });
     } else {
       data = await apiRequest(API_CONFIG.endpoints.feedPostCreate, {
         method: 'POST',
+        wechatContext: '发布帖子',
         body: JSON.stringify({
           category: String(category || 'study'),
           title: String(title || ''),
@@ -2568,6 +2648,7 @@ const apiAdapter = {
   async createErrand(payload = {}) {
     const data = await apiRequest(API_CONFIG.endpoints.errandList, {
       method: 'POST',
+      wechatContext: '发布跑腿任务',
       body: JSON.stringify({
         task_type: String(payload.task_type || 'quick'),
         title: String(payload.title || ''),
@@ -2589,6 +2670,7 @@ const apiAdapter = {
   async runErrandAction(taskId, action) {
     const data = await apiRequest(API_CONFIG.endpoints.errandAction, {
       method: 'POST',
+      wechatContext: '操作跑腿任务',
       body: JSON.stringify({ task_id: String(taskId || ''), action: String(action || 'detail') }),
       retries: 0
     });
@@ -2627,14 +2709,7 @@ const apiAdapter = {
     if (!data || !data.access_token) {
       return null;
     }
-    appState.clientAuth = {
-      token: String(data.access_token),
-      refreshToken: String(data.refresh_token || ''),
-      userId: Number(data.user_id || 0),
-      username: String(data.username || ''),
-      displayName: String(data.display_name || ''),
-      publicName: String(data.public_name || '')
-    };
+    updateClientAuthFromPayload(data, appState.clientAuth);
     saveClientToken(appState.clientAuth.token);
     saveClientRefreshToken(appState.clientAuth.refreshToken);
     saveState();
@@ -3433,6 +3508,9 @@ function requestDeleteComment(commentId) {
   if (!commentId || !activeCommentPostId) {
     return;
   }
+  if (!requireWechatBoundAction('删除评论')) {
+    return;
+  }
   if (!confirm('确认删除这条评论？')) {
     return;
   }
@@ -3589,6 +3667,9 @@ async function submitComment() {
     setCommentComposerState();
     return;
   }
+  if (!requireWechatBoundAction(replyTarget ? '回复评论' : '发表评论')) {
+    return;
+  }
 
   const clientId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const localComment = {
@@ -3652,6 +3733,9 @@ async function retryComment(commentId) {
   const list = ensureCommentStore(postId);
   const target = list.find((item) => item.id === commentId);
   if (!target || target.status !== 'failed') {
+    return;
+  }
+  if (!requireWechatBoundAction('重试发送评论')) {
     return;
   }
 
@@ -3718,6 +3802,9 @@ function openPostComposer() {
   if (!postComposerSheet || !postComposerMask) {
     return;
   }
+  if (!requireWechatBoundAction('发布帖子')) {
+    return;
+  }
   closeCommentSheet();
   closeInboxDetailSheet();
   closePostDetailSheet();
@@ -3741,6 +3828,9 @@ async function submitPostComposer() {
 
   if (!title || !content) {
     showToast('请填写标题和内容');
+    return;
+  }
+  if (!requireWechatBoundAction('发布帖子')) {
     return;
   }
 
@@ -3784,6 +3874,9 @@ async function handleFeedAction(action, id) {
   }
 
   if (action === 'like') {
+    if (!requireWechatBoundAction('点赞帖子')) {
+      return;
+    }
     const wasLiked = post.liked || likedPostIds.has(String(id));
     const nextLiked = !wasLiked;
     const previousLiked = Boolean(wasLiked);
@@ -4249,24 +4342,24 @@ async function goSearchPage(nextPage) {
 function openWechatAuthPage() {
   openSubpageSheet({
     title: '账号互通',
-    subtitle: '小程序与网页端共用同一账号',
+    subtitle: '绑定后才能在网页端互动',
     body: `
       <div class="wechat-auth-panel">
         <div class="wechat-auth-hero">
           <strong>微信互通登录</strong>
-          <p>网页端会接入你在小程序里的同一个账号，帖子、收藏、消息和知识对话记录都会保持联通。</p>
+          <p>网页端浏览和搜索不受影响；发帖、评论、点赞、收藏和跑腿等互动操作，需要先通过小程序微信身份互通，确保账号可信、数据同步、操作可追溯。</p>
         </div>
         <div class="wechat-auth-steps">
-          <div class="wechat-auth-step"><span>1</span><p>打开小程序“我的”页，进入“网页互通登录”。</p></div>
-          <div class="wechat-auth-step"><span>2</span><p>复制小程序生成的一次性登录码。</p></div>
-          <div class="wechat-auth-step"><span>3</span><p>把登录码粘贴到这里，完成网页端登录。</p></div>
+          <div class="wechat-auth-step"><span>1</span><p>打开微信小程序“我的”页，确认已完成微信登录。</p></div>
+          <div class="wechat-auth-step"><span>2</span><p>进入“网页互通登录”，复制小程序生成的一次性登录码。</p></div>
+          <div class="wechat-auth-step"><span>3</span><p>把登录码粘贴到这里，网页端会自动切换到同一个微信绑定账号。</p></div>
         </div>
         <input id="webLoginCodeInput" type="text" maxlength="12" placeholder="请输入小程序生成的登录码" />
         <div class="wechat-auth-benefits">
+          <span class="wechat-auth-benefit">先绑定再互动</span>
           <span class="wechat-auth-benefit">同账号</span>
-          <span class="wechat-auth-benefit">同收藏</span>
           <span class="wechat-auth-benefit">同消息</span>
-          <span class="wechat-auth-benefit">同知识记录</span>
+          <span class="wechat-auth-benefit">更安全</span>
         </div>
       </div>
     `,
@@ -5529,6 +5622,12 @@ function applyProfileSummary(summary) {
     return;
   }
 
+  if (appState.clientAuth) {
+    appState.clientAuth.wechatBound = Boolean(summary.wechatBound);
+    appState.clientAuth.bindState = String(summary.bindState || (summary.wechatBound ? '已绑定微信身份' : '未绑定微信身份'));
+    saveState();
+  }
+
   if (profileName && summary.name) {
     profileName.textContent = summary.name;
   }
@@ -5542,7 +5641,7 @@ function applyProfileSummary(summary) {
   if (wechatBindRow) {
     const hint = wechatBindRow.querySelector('i');
     if (hint) {
-      hint.textContent = summary.wechatBound ? '已开启微信互通' : '通过小程序互通登录';
+      hint.textContent = summary.wechatBound ? '已开启微信互通' : '未绑定，互动需先互通';
     }
   }
   if (profilePostCount && Number.isFinite(summary.posts)) {
@@ -6910,12 +7009,18 @@ function applyProfileSettings(settings) {
     return;
   }
 
+  if (!appState.clientAuth) {
+    appState.clientAuth = { ...defaultState.clientAuth };
+  }
   if (settings.displayName) {
     appState.clientAuth.displayName = settings.displayName;
   }
   if (settings.publicName) {
     appState.clientAuth.publicName = settings.publicName;
   }
+  const nextWechatBound = Boolean(settings.wechatBound ?? appState.clientAuth.wechatBound);
+  appState.clientAuth.wechatBound = nextWechatBound;
+  appState.clientAuth.bindState = String(settings.bindState || (nextWechatBound ? '已绑定微信身份' : '未绑定微信身份'));
   saveState();
 
   if (profilePublicName && settings.publicName) {
@@ -6928,7 +7033,7 @@ function applyProfileSettings(settings) {
     profileBindState.textContent = settings.bindState;
   }
   if (profileInteropHint) {
-    profileInteropHint.textContent = settings.wechatBound ? '已开启微信互通' : '通过小程序互通登录';
+    profileInteropHint.textContent = nextWechatBound ? '已开启微信互通' : '未绑定，互动需先互通';
   }
   syncHeaderGreeting(settings.displayName || settings.publicName || '');
 }
@@ -7006,12 +7111,25 @@ function openPublicNameSheet() {
 function openWechatAuthPage() {
   openSubpageSheet({
     title: '账号互通',
-    subtitle: '小程序与网页共用同一账号',
+    subtitle: '绑定后才能在网页端互动',
     body: `
       <div class="wechat-auth-panel">
-        <p>在小程序“我的”页点击“网页登录”，复制一次性登录码后粘贴到这里。</p>
+        <div class="wechat-auth-hero">
+          <strong>微信互通登录</strong>
+          <p>网页端浏览和搜索不受影响；发帖、评论、点赞、收藏和跑腿等互动操作，需要先通过小程序微信身份互通。</p>
+        </div>
+        <div class="wechat-auth-steps">
+          <div class="wechat-auth-step"><span>1</span><p>打开微信小程序“我的”页，进入“网页互通登录”。</p></div>
+          <div class="wechat-auth-step"><span>2</span><p>复制小程序生成的一次性登录码。</p></div>
+          <div class="wechat-auth-step"><span>3</span><p>把登录码粘贴到这里，网页端会自动切换到同一个微信绑定账号。</p></div>
+        </div>
         <input id="webLoginCodeInput" type="text" maxlength="12" placeholder="请输入小程序生成的登录码" />
-        <p class="scope-tip">登录成功后，网页端会直接接入同一账号、帖子、收藏和消息提醒。</p>
+        <div class="wechat-auth-benefits">
+          <span class="wechat-auth-benefit">先绑定再互动</span>
+          <span class="wechat-auth-benefit">同账号</span>
+          <span class="wechat-auth-benefit">同消息</span>
+          <span class="wechat-auth-benefit">更安全</span>
+        </div>
       </div>
     `,
     actionLabel: '登录网页',
@@ -7270,6 +7388,9 @@ async function applyErrandAction(task, action) {
   if (!task || !action || action === 'detail') {
     return task || null;
   }
+  if (!requireWechatBoundAction('操作跑腿任务')) {
+    return null;
+  }
   const result = await apiAdapter.runErrandAction(task.id, action);
   if (!result || !result.item) {
     showToast('任务操作失败，请稍后再试');
@@ -7355,6 +7476,9 @@ function openErrandTaskDetail(taskId) {
 }
 
 function openErrandCreateSheet() {
+  if (!requireWechatBoundAction('发布跑腿任务')) {
+    return;
+  }
   const identity = getCurrentClientIdentity();
   openSubpageSheet({
     title: '发布跑腿需求',
@@ -8320,11 +8444,17 @@ if (commentList) {
     }
     const replyBtn = event.target.closest('button[data-reply-comment-id]');
     if (replyBtn) {
+      if (!requireWechatBoundAction('回复评论')) {
+        return;
+      }
       setReplyTarget(replyBtn.dataset.replyCommentId);
       return;
     }
     const likeBtn = event.target.closest('button[data-like-comment-id]');
     if (likeBtn) {
+      if (!requireWechatBoundAction('点赞评论')) {
+        return;
+      }
       const commentId = String(likeBtn.dataset.likeCommentId || '');
       if (!commentId) {
         return;
@@ -8631,6 +8761,9 @@ function getClientSessionSnapshot() {
     userId: Number(appState.clientAuth.userId || 0),
     username: String(appState.clientAuth.username || ''),
     displayName: String(appState.clientAuth.displayName || ''),
+    publicName: String(appState.clientAuth.publicName || ''),
+    wechatBound: Boolean(appState.clientAuth.wechatBound),
+    bindState: String(appState.clientAuth.bindState || ''),
     token: String(appState.clientAuth.token || ''),
     refreshToken: String(appState.clientAuth.refreshToken || '')
   };
@@ -8691,24 +8824,24 @@ window.addEventListener('offline', () => {
 function openWechatAuthPage() {
   openSubpageSheet({
     title: '账号互通',
-    subtitle: '小程序与网页端共用同一账号',
+    subtitle: '绑定后才能在网页端互动',
     body: `
       <div class="wechat-auth-panel">
         <div class="wechat-auth-hero">
           <strong>微信互通登录</strong>
-          <p>网页端会接入你在小程序里的同一个账号，帖子、收藏、消息和知识对话记录都会保持联通。</p>
+          <p>网页端浏览和搜索不受影响；发帖、评论、点赞、收藏和跑腿等互动操作，需要先通过小程序微信身份互通，确保账号可信、数据同步、操作可追溯。</p>
         </div>
         <div class="wechat-auth-steps">
-          <div class="wechat-auth-step"><span>1</span><p>打开小程序“我的”页，进入“网页互通登录”。</p></div>
-          <div class="wechat-auth-step"><span>2</span><p>复制小程序生成的一次性登录码。</p></div>
-          <div class="wechat-auth-step"><span>3</span><p>把登录码粘贴到这里，完成网页端登录。</p></div>
+          <div class="wechat-auth-step"><span>1</span><p>打开微信小程序“我的”页，确认已完成微信登录。</p></div>
+          <div class="wechat-auth-step"><span>2</span><p>进入“网页互通登录”，复制小程序生成的一次性登录码。</p></div>
+          <div class="wechat-auth-step"><span>3</span><p>把登录码粘贴到这里，网页端会自动切换到同一个微信绑定账号。</p></div>
         </div>
         <input id="webLoginCodeInput" type="text" maxlength="12" placeholder="请输入小程序生成的登录码" />
         <div class="wechat-auth-benefits">
+          <span class="wechat-auth-benefit">先绑定再互动</span>
           <span class="wechat-auth-benefit">同账号</span>
-          <span class="wechat-auth-benefit">同收藏</span>
           <span class="wechat-auth-benefit">同消息</span>
-          <span class="wechat-auth-benefit">同知识记录</span>
+          <span class="wechat-auth-benefit">更安全</span>
         </div>
       </div>
     `,

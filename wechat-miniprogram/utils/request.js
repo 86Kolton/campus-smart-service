@@ -6,6 +6,8 @@ const USER_ID_KEY = "client_user_id";
 const USERNAME_KEY = "client_username";
 const DISPLAY_NAME_KEY = "client_display_name";
 const PUBLIC_NAME_KEY = "client_public_name";
+const WECHAT_BOUND_KEY = "client_wechat_bound";
+const BIND_STATE_KEY = "client_bind_state";
 
 function getTokenInfo() {
   return {
@@ -14,7 +16,9 @@ function getTokenInfo() {
     userId: Number(wx.getStorageSync(USER_ID_KEY) || 0),
     username: wx.getStorageSync(USERNAME_KEY) || "",
     displayName: wx.getStorageSync(DISPLAY_NAME_KEY) || "",
-    publicName: wx.getStorageSync(PUBLIC_NAME_KEY) || ""
+    publicName: wx.getStorageSync(PUBLIC_NAME_KEY) || "",
+    wechatBound: Boolean(wx.getStorageSync(WECHAT_BOUND_KEY)),
+    bindState: wx.getStorageSync(BIND_STATE_KEY) || ""
   };
 }
 
@@ -25,6 +29,8 @@ function saveTokens(payload = {}) {
   const username = String(payload.username || "").trim();
   const displayName = String(payload.display_name || payload.displayName || "").trim();
   const publicName = String(payload.public_name || payload.publicName || "").trim();
+  const wechatBound = Boolean(payload.wechat_bound ?? payload.wechatBound ?? false);
+  const bindState = String(payload.bind_state || payload.bindState || (wechatBound ? "已绑定微信身份" : "未绑定微信身份")).trim();
 
   if (accessToken) wx.setStorageSync(ACCESS_TOKEN_KEY, accessToken);
   if (refreshToken) wx.setStorageSync(REFRESH_TOKEN_KEY, refreshToken);
@@ -32,8 +38,10 @@ function saveTokens(payload = {}) {
   if (username) wx.setStorageSync(USERNAME_KEY, username);
   if (displayName) wx.setStorageSync(DISPLAY_NAME_KEY, displayName);
   if (publicName) wx.setStorageSync(PUBLIC_NAME_KEY, publicName);
+  wx.setStorageSync(WECHAT_BOUND_KEY, wechatBound);
+  if (bindState) wx.setStorageSync(BIND_STATE_KEY, bindState);
 
-  return { accessToken, refreshToken, userId, username, displayName, publicName };
+  return { accessToken, refreshToken, userId, username, displayName, publicName, wechatBound, bindState };
 }
 
 function clearTokens() {
@@ -43,6 +51,8 @@ function clearTokens() {
   wx.removeStorageSync(USERNAME_KEY);
   wx.removeStorageSync(DISPLAY_NAME_KEY);
   wx.removeStorageSync(PUBLIC_NAME_KEY);
+  wx.removeStorageSync(WECHAT_BOUND_KEY);
+  wx.removeStorageSync(BIND_STATE_KEY);
 }
 
 function parseErrorMessage(responseData, statusCode) {

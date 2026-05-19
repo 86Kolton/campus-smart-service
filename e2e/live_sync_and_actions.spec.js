@@ -20,6 +20,15 @@ test("comment action uses filled style without outline border", async ({ page })
   expect(style.backgroundImage).not.toBe("none");
 });
 
+test("unbound web user sees WeChat binding guide before posting", async ({ page }) => {
+  await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+  await page.locator("#globalFabBtn").click();
+  await expect(page.locator("#subpageSheet")).toBeVisible();
+  await expect(page.locator("#subpageTitle")).toContainText("请先绑定微信");
+  await expect(page.locator("#subpageBody")).toContainText("发布帖子需要先完成微信绑定");
+  await expect(page.locator("#subpageActionBtn")).toContainText("去互通登录");
+});
+
 test("profile view refreshes after same-account remote update", async ({ page }) => {
   await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
   await page.click('button.tab[data-target="profile"]');

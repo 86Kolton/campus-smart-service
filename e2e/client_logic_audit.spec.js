@@ -15,12 +15,25 @@ async function closeSearchSheetIfOpen(page) {
   await expect(searchSheet).toBeHidden();
 }
 
+async function ensureBoundWebSession(page, label) {
+  await page.waitForFunction(() => window.CampusClientAuth && window.CampusClientAuth.loginWithWechatCode);
+  const ok = await page.evaluate(
+    async ({ code, name }) => window.CampusClientAuth.loginWithWechatCode(code, name),
+    { code: `pw-${label}-${Date.now()}`, name: "Playwright同学" }
+  );
+  expect(ok).toBeTruthy();
+  const session = await page.evaluate(() => window.CampusClientAuth.getSessionSync());
+  expect(session.wechatBound).toBeTruthy();
+  await page.reload({ waitUntil: "domcontentloaded" });
+}
+
 test("client logic audit: search/likes/comments", async ({ page }) => {
   page.on("dialog", async (dialog) => {
     await dialog.accept();
   });
 
   await page.goto("http://127.0.0.1:5173/index.html", { waitUntil: "domcontentloaded" });
+  await ensureBoundWebSession(page, "logic");
 
   await page.click('button.tab[data-target="search"]');
   const keywords = ["食堂", "图书馆", "校车", "成绩单", "宿舍", "教务", "空教室"];

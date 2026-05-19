@@ -2,7 +2,7 @@ import json
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 
-from app.api.deps import ClientIdentity, require_client_identity
+from app.api.deps import ClientIdentity, require_client_identity, require_wechat_bound_client
 from app.schemas.client import (
     CommentListResponse,
     CreateCommentRequest,
@@ -84,7 +84,7 @@ async def get_feed_post(
 @router.post("/feed/like", response_model=ToggleLikeResponse)
 async def toggle_like(
     payload: ToggleLikeRequest,
-    identity: ClientIdentity = Depends(require_client_identity),
+    identity: ClientIdentity = Depends(require_wechat_bound_client),
 ) -> ToggleLikeResponse:
     return ToggleLikeResponse(
         **post_service.toggle_like(post_id=payload.post_id, liked=payload.liked, user_id=identity.user_id)
@@ -94,7 +94,7 @@ async def toggle_like(
 @router.post("/feed/save", response_model=ToggleSaveResponse)
 async def toggle_save(
     payload: ToggleSaveRequest,
-    identity: ClientIdentity = Depends(require_client_identity),
+    identity: ClientIdentity = Depends(require_wechat_bound_client),
 ) -> ToggleSaveResponse:
     return ToggleSaveResponse(
         **post_service.toggle_save(post_id=payload.post_id, saved=payload.saved, user_id=identity.user_id)
@@ -104,7 +104,7 @@ async def toggle_save(
 @router.post("/feed/post/create", response_model=CreatePostResponse)
 async def create_post(
     payload: CreatePostRequest,
-    identity: ClientIdentity = Depends(require_client_identity),
+    identity: ClientIdentity = Depends(require_wechat_bound_client),
 ) -> CreatePostResponse:
     try:
         row = post_service.create_post(
@@ -127,7 +127,7 @@ async def create_post_with_image(
     content: str = Form(...),
     tags: str | None = Form(default=None),
     image: UploadFile | None = File(default=None),
-    identity: ClientIdentity = Depends(require_client_identity),
+    identity: ClientIdentity = Depends(require_wechat_bound_client),
 ) -> CreatePostResponse:
     image_meta = None
     if image:
@@ -180,7 +180,7 @@ async def list_comments(
 @router.post("/feed/comment/create", response_model=CreateCommentResponse)
 async def create_comment(
     payload: CreateCommentRequest,
-    identity: ClientIdentity = Depends(require_client_identity),
+    identity: ClientIdentity = Depends(require_wechat_bound_client),
 ) -> CreateCommentResponse:
     try:
         row = comment_service.create_comment(
@@ -205,7 +205,7 @@ async def create_comment_with_image(
     reply_to_comment_id: str | None = Form(default=None),
     reply_to_author: str | None = Form(default=None),
     image: UploadFile | None = File(default=None),
-    identity: ClientIdentity = Depends(require_client_identity),
+    identity: ClientIdentity = Depends(require_wechat_bound_client),
 ) -> CreateCommentResponse:
     image_meta = None
     if image:
@@ -238,7 +238,7 @@ async def create_comment_with_image(
 @router.post("/feed/comment/like", response_model=ToggleCommentLikeResponse)
 async def toggle_comment_like(
     payload: ToggleCommentLikeRequest,
-    identity: ClientIdentity = Depends(require_client_identity),
+    identity: ClientIdentity = Depends(require_wechat_bound_client),
 ) -> ToggleCommentLikeResponse:
     try:
         row = comment_service.toggle_comment_like(
@@ -254,7 +254,7 @@ async def toggle_comment_like(
 @router.post("/feed/comment/delete", response_model=DeleteCommentResponse)
 async def delete_comment(
     payload: DeleteCommentRequest,
-    identity: ClientIdentity = Depends(require_client_identity),
+    identity: ClientIdentity = Depends(require_wechat_bound_client),
 ) -> DeleteCommentResponse:
     try:
         row = comment_service.delete_comment(
@@ -270,7 +270,7 @@ async def delete_comment(
 @router.post("/feed/post/delete", response_model=DeletePostResponse)
 async def delete_post(
     payload: DeletePostRequest,
-    identity: ClientIdentity = Depends(require_client_identity),
+    identity: ClientIdentity = Depends(require_wechat_bound_client),
 ) -> DeletePostResponse:
     try:
         row = post_service.delete_post(post_id=payload.post_id, user_id=identity.user_id)

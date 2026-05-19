@@ -6,6 +6,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.core.config import settings
 from app.core.security import decode_access_token
 from app.services.token_service import token_service
+from app.services.user_service import user_service
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -15,6 +16,7 @@ bearer_scheme = HTTPBearer(auto_error=False)
 class ClientIdentity:
     user_id: int
     username: str
+    wechat_bound: bool = False
 
 
 def require_admin_token(
@@ -71,3 +73,16 @@ def require_client_identity(
         raise HTTPException(status_code=401, detail="client_token_revoked")
 
     return ClientIdentity(user_id=user_id, username=username)
+
+
+def require_wechat_bound_client(
+    identity: ClientIdentity = Depends(require_client_identity),
+) -> ClientIdentity:
+    user = user_service.get_user(identity.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="client_not_found")
+    if user.role != "client" or user.status != "active":
+        raise HTTPException(status_code=403, detail="client_forbidden")
+    if not str(user.wechat_openid or "").strip():
+        raise HTTPException(status_code=403, detail="wechat_bind_required")
+    return ClientIdentity(user_id=identity.user_id, username=identity.username, wechat_bound=True)
