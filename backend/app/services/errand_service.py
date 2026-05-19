@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from app.core.database import SessionLocal
 from app.models.errand_task import ErrandTask
@@ -136,6 +136,9 @@ class ErrandService:
             "runner_id": int(task.runner_id) if task.runner_id else None,
             "runner_name": runner_name,
             "runner_contact": "站内已接单" if runner_name else "",
+            "is_publisher": bool(is_publisher),
+            "is_runner": bool(is_runner),
+            "can_view_contact": bool(can_view_contact),
             "status": status,
             "status_label": STATUS_LABELS.get(status, "待接单"),
             "status_tone": STATUS_TONES.get(status, "blue"),
@@ -185,7 +188,7 @@ class ErrandService:
             rows = db.execute(
                 select(ErrandTask, User)
                 .join(User, User.id == ErrandTask.publisher_id)
-                .where(ErrandTask.publisher_id == int(viewer_user_id))
+                .where(or_(ErrandTask.publisher_id == int(viewer_user_id), ErrandTask.runner_id == int(viewer_user_id)))
                 .order_by(ErrandTask.id.desc())
             ).all()
             runner_ids = [int(row[0].runner_id) for row in rows if row[0].runner_id]

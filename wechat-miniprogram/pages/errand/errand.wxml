@@ -16,11 +16,11 @@
       </view>
       <view class="hero-stat {{activeStatus === 'inprogress' ? 'is-active' : ''}}" data-status="inprogress" bindtap="onTapHeroStat">
         <view class="hero-stat-value">{{stats.inprogress}}</view>
-        <view class="hero-stat-label">进行中</view>
+        <view class="hero-stat-label">我的进行中</view>
       </view>
       <view class="hero-stat {{activeStatus === 'done' ? 'is-active' : ''}}" data-status="done" bindtap="onTapHeroStat">
         <view class="hero-stat-value">{{stats.done}}</view>
-        <view class="hero-stat-label">已完成</view>
+        <view class="hero-stat-label">我的完成</view>
       </view>
     </view>
   </view>
@@ -64,7 +64,7 @@
     <view class="detail-contact-card">
       <view class="detail-contact-title">发布者联系信息</view>
       <view class="detail-contact-value">{{selectedTask.publisher_contact}}</view>
-      <view class="detail-contact-hint">仅发布者和已接单同学可见，其他人接单后才显示。</view>
+      <view class="detail-contact-hint">{{selectedTask.can_view_contact ? '联系方式已解锁，可按约定沟通。' : '仅发布者和已接单同学可见，其他人接单后才显示。'}}</view>
     </view>
 
     <view wx:if="{{selectedTask.runner_name}}" class="detail-contact-card detail-contact-card-soft">
@@ -109,7 +109,7 @@
       </view>
 
       <view class="errand-note">{{item.note || '发布者未补充任务说明。'}}</view>
-      <view class="errand-contact">发布者：{{item.publisher_name}}</view>
+      <view class="errand-contact">发布者：{{item.publisher_name}} · 联系：{{item.publisher_contact}}</view>
 
       <view class="errand-card-actions">
         <button class="btn-ghost card-btn" catchtap="runAction" data-id="{{item.id}}" data-action="detail">查看详情</button>
@@ -118,7 +118,7 @@
     </view>
 
     <view wx:if="{{!tasks.length && !loading && !error}}" class="surface-card errand-empty-card">
-      <view class="empty">当前筛选下暂无跑腿需求</view>
+      <view class="empty">{{emptyText}}</view>
       <button class="btn-primary empty-create-btn" bindtap="openComposer">发布第一条任务</button>
     </view>
 

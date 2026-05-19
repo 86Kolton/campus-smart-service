@@ -418,6 +418,9 @@ class ErrandTaskItem(BaseModel):
     runner_id: int | None = None
     runner_name: str = ""
     runner_contact: str = ""
+    is_publisher: bool = False
+    is_runner: bool = False
+    can_view_contact: bool = False
     status: str
     status_label: str
     status_tone: str

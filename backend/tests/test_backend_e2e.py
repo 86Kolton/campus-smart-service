@@ -117,6 +117,14 @@ def test_backend_e2e_flow() -> None:
         assert b_register.status_code == 200, b_register.text
         b_token = str(b_register.json().get("access_token", ""))
         b_headers = {"Authorization": f"Bearer {b_token}"}
+        user_c_name = f"user_c_{uuid4().hex[:8]}"
+        c_register = client.post(
+            "/api/client/auth/register",
+            json={"username": user_c_name, "display_name": "userC", "password": "demo123"},
+        )
+        assert c_register.status_code == 200, c_register.text
+        c_token = str(c_register.json().get("access_token", ""))
+        c_headers = {"Authorization": f"Bearer {c_token}"}
 
         a_comment = client.post(
             "/api/client/feed/comment/create",
@@ -331,11 +339,56 @@ def test_backend_e2e_flow() -> None:
             headers=b_headers,
         )
         assert claim_errand.status_code == 200
-        assert claim_errand.json().get("item", {}).get("publisher_contact")
+        claimed_item = claim_errand.json().get("item", {})
+        assert claimed_item.get("publisher_contact") == "站内私信 @夜读观察员"
+        assert claimed_item.get("is_runner") is True
+        assert claimed_item.get("can_view_contact") is True
 
         my_errands = client.get("/api/client/errands/my", headers=client_headers)
         assert my_errands.status_code == 200
         assert any(str(item.get("id")) == errand_id for item in (my_errands.json().get("items") or []))
+
+        runner_my_errands = client.get("/api/client/errands/my", headers=b_headers)
+        assert runner_my_errands.status_code == 200
+        runner_match = [
+            item for item in (runner_my_errands.json().get("items") or [])
+            if str(item.get("id")) == errand_id
+        ]
+        assert runner_match
+        assert runner_match[0].get("publisher_contact") == "站内私信 @夜读观察员"
+        assert runner_match[0].get("is_runner") is True
+
+        stranger_errands = client.get("/api/client/errands", headers=c_headers)
+        assert stranger_errands.status_code == 200
+        stranger_match = [
+            item for item in (stranger_errands.json().get("items") or [])
+            if str(item.get("id")) == errand_id
+        ]
+        assert stranger_match
+        assert stranger_match[0].get("publisher_contact") == "接单后可见"
+
+        deliver_errand = client.post(
+            "/api/client/errands/action",
+            json={"task_id": errand_id, "action": "delivered"},
+            headers=b_headers,
+        )
+        assert deliver_errand.status_code == 200, deliver_errand.text
+        confirm_errand = client.post(
+            "/api/client/errands/action",
+            json={"task_id": errand_id, "action": "confirm"},
+            headers=client_headers,
+        )
+        assert confirm_errand.status_code == 200, confirm_errand.text
+
+        runner_my_done = client.get("/api/client/errands/my", headers=b_headers)
+        assert runner_my_done.status_code == 200
+        runner_done_match = [
+            item for item in (runner_my_done.json().get("items") or [])
+            if str(item.get("id")) == errand_id
+        ]
+        assert runner_done_match
+        assert runner_done_match[0].get("status") == "done"
+        assert runner_done_match[0].get("publisher_contact") == "站内私信 @夜读观察员"
 
         knowledge = client.post(
             "/api/client/knowledge/ask",

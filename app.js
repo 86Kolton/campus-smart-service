@@ -1995,6 +1995,9 @@ const apiAdapter = {
       runnerId: Number(item.runner_id || item.runnerId || 0),
       runnerName: String(item.runner_name || item.runnerName || ''),
       runnerContact: String(item.runner_contact || item.runnerContact || ''),
+      isPublisher: Boolean(item.is_publisher ?? item.isPublisher ?? false),
+      isRunner: Boolean(item.is_runner ?? item.isRunner ?? false),
+      canViewContact: Boolean(item.can_view_contact ?? item.canViewContact ?? false),
       status: String(item.status || 'open'),
       statusLabel: String(item.status_label || item.statusLabel || '待接单'),
       statusTone: String(item.status_tone || item.statusTone || 'blue'),
@@ -7124,6 +7127,40 @@ function getErrandPrimaryAction(task) {
   };
 }
 
+function isErrandRunnerTask(task) {
+  if (task && task.isRunner) {
+    return true;
+  }
+  const identity = getCurrentClientIdentity();
+  return identity.userId > 0 && Number(task && task.runnerId || 0) === identity.userId;
+}
+
+function isErrandPublisherTask(task) {
+  if (task && task.isPublisher) {
+    return true;
+  }
+  const identity = getCurrentClientIdentity();
+  return identity.userId > 0 && Number(task && task.publisherId || 0) === identity.userId;
+}
+
+function shouldShowErrandInDefaultPool(task) {
+  const status = normalizeErrandStatus(task && task.status);
+  return status === 'open' || isErrandRunnerTask(task) || isErrandPublisherTask(task);
+}
+
+function getErrandEmptyText() {
+  if (activeErrandStatusFilter === 'inprogress') {
+    return '你暂无进行中的接单任务';
+  }
+  if (activeErrandStatusFilter === 'done') {
+    return '你暂无已完成的接单任务';
+  }
+  if (activeErrandStatusFilter === 'open') {
+    return '暂无待接单跑腿需求';
+  }
+  return '暂无跑腿需求';
+}
+
 async function refreshErrandTasks({ silent = true } = {}) {
   const remote = await apiAdapter.fetchErrands('all');
   if (Array.isArray(remote)) {
@@ -7142,9 +7179,9 @@ function renderErrandSummary() {
   const open = errandTasks.filter((task) => normalizeErrandStatus(task.status) === 'open').length;
   const inprogress = errandTasks.filter((task) => {
     const status = normalizeErrandStatus(task.status);
-    return status === 'inprogress' || status === 'waiting_confirm';
+    return isErrandRunnerTask(task) && (status === 'inprogress' || status === 'waiting_confirm');
   }).length;
-  const done = errandTasks.filter((task) => normalizeErrandStatus(task.status) === 'done').length;
+  const done = errandTasks.filter((task) => isErrandRunnerTask(task) && normalizeErrandStatus(task.status) === 'done').length;
   if (errandOpenCount) {
     errandOpenCount.textContent = String(open);
   }
@@ -7171,12 +7208,12 @@ function matchesErrandStatusFilter(task) {
     return status === 'open';
   }
   if (activeErrandStatusFilter === 'inprogress') {
-    return status === 'inprogress' || status === 'waiting_confirm';
+    return isErrandRunnerTask(task) && (status === 'inprogress' || status === 'waiting_confirm');
   }
   if (activeErrandStatusFilter === 'done') {
-    return status === 'done';
+    return isErrandRunnerTask(task) && status === 'done';
   }
-  return true;
+  return shouldShowErrandInDefaultPool(task);
 }
 
 function renderErrandList() {
@@ -7194,13 +7231,15 @@ function renderErrandList() {
   });
 
   if (!filtered.length) {
-    errandList.innerHTML = '<div class="subpage-empty">暂无跑腿需求</div>';
+    errandList.innerHTML = `<div class="subpage-empty">${escapeHtml(getErrandEmptyText())}</div>`;
     return;
   }
 
   errandList.innerHTML = filtered.map((task) => {
     const action = getErrandPrimaryAction(task);
     const locationText = task.locationSummary || [task.pickupLocation, task.destination].filter(Boolean).join(' → ') || '待沟通';
+    const roleText = isErrandRunnerTask(task) ? '我的接单' : (isErrandPublisherTask(task) ? '我发布的' : '');
+    const contactText = task.canViewContact ? task.publisherContact : '接单后可见';
     return `
       <article class="errand-card" data-errand-id="${escapeHtml(task.id)}">
         <div class="errand-head">
@@ -7211,12 +7250,13 @@ function renderErrandList() {
           <span>${escapeHtml(task.time)}</span>
           <span>${escapeHtml(locationText)}</span>
           <span class="errand-tag">${escapeHtml(task.tag)}</span>
+          ${roleText ? `<span class="errand-tag">${escapeHtml(roleText)}</span>` : ''}
         </div>
         <p class="errand-note">${escapeHtml(task.note || locationText)}</p>
         <div class="errand-status">
           <span class="${escapeHtml(getErrandStatusClass(task.status))}">${escapeHtml(task.statusLabel || getErrandStatusLabel(task.status))}</span>
         </div>
-        <p class="errand-contact">发布者：${escapeHtml(task.publisherName || '匿名同学')} · 联系方式：${escapeHtml(task.publisherContact || '接单后可见')}</p>
+        <p class="errand-contact">发布者：${escapeHtml(task.publisherName || '匿名同学')} · 联系方式：${escapeHtml(contactText || '接单后可见')}</p>
         <div class="errand-actions">
           <button class="btn-light" type="button" data-errand-action="detail" data-errand-id="${escapeHtml(task.id)}">查看详情</button>
           <button class="${escapeHtml(action.buttonClass)}" type="button" data-errand-action="${escapeHtml(action.action)}" data-errand-id="${escapeHtml(task.id)}">${escapeHtml(action.label)}</button>
@@ -7275,6 +7315,7 @@ function openErrandTaskDetail(taskId) {
       ].filter(Boolean).join(' ｜ ');
   const primary = getErrandPrimaryAction(task);
   const actionLabel = primary.label || '返回任务池';
+  const contactHint = task.canViewContact ? '联系方式已解锁，可按约定沟通。' : '接单后可见，接单成功后会显示。';
   const body = `
     <p>任务类型：${escapeHtml(task.tag)} · 奖励 ${escapeHtml(task.reward)}</p>
     <p>预计时效：${escapeHtml(task.time)}。</p>
@@ -7283,6 +7324,7 @@ function openErrandTaskDetail(taskId) {
     <p>需求说明：${escapeHtml(task.note || '暂无补充说明')}</p>
     <p>状态：${escapeHtml(task.statusLabel || getErrandStatusLabel(task.status))}</p>
     <p>发布者：${escapeHtml(task.publisherName || '匿名同学')} · 联系方式：${escapeHtml(task.publisherContact || '接单后可见')}</p>
+    <p>联系提示：${escapeHtml(contactHint)}</p>
     ${task.runnerName ? `<p>接单者：${escapeHtml(task.runnerName)} · 联系方式：${escapeHtml(task.runnerContact || '站内已接单')}</p>` : '<p>接单者：暂无</p>'}
     <p>流转记录：${escapeHtml(timeline || '暂无')}</p>
   `;

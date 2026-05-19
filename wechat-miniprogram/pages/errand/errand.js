@@ -30,18 +30,38 @@ function filterTasks(tasks = [], filter = "all", status = "all") {
   const filtered = filter === "all" ? tasks : tasks.filter((item) => item.task_type === filter);
   if (status === "open") return filtered.filter((item) => String(item.status) === "open");
   if (status === "inprogress") {
-    return filtered.filter((item) => ["inprogress", "waiting_confirm"].includes(String(item.status)));
+    return filtered.filter((item) => isRunnerTask(item) && ["inprogress", "waiting_confirm"].includes(String(item.status)));
   }
-  if (status === "done") return filtered.filter((item) => String(item.status) === "done");
-  return filtered;
+  if (status === "done") return filtered.filter((item) => isRunnerTask(item) && String(item.status) === "done");
+  return filtered.filter((item) => shouldShowInDefaultPool(item));
 }
 
 function getStats(tasks = []) {
   return {
     open: tasks.filter((item) => String(item.status) === "open").length,
-    inprogress: tasks.filter((item) => ["inprogress", "waiting_confirm"].includes(String(item.status))).length,
-    done: tasks.filter((item) => String(item.status) === "done").length
+    inprogress: tasks.filter((item) => isRunnerTask(item) && ["inprogress", "waiting_confirm"].includes(String(item.status))).length,
+    done: tasks.filter((item) => isRunnerTask(item) && String(item.status) === "done").length
   };
+}
+
+function isRunnerTask(item = {}) {
+  return Boolean(item.is_runner || item.isRunner);
+}
+
+function isPublisherTask(item = {}) {
+  return Boolean(item.is_publisher || item.isPublisher);
+}
+
+function shouldShowInDefaultPool(item = {}) {
+  const status = String(item.status || "open");
+  return status === "open" || isRunnerTask(item) || isPublisherTask(item);
+}
+
+function getEmptyText(status = "all") {
+  if (status === "inprogress") return "你暂无进行中的接单任务";
+  if (status === "done") return "你暂无已完成的接单任务";
+  if (status === "open") return "暂无待接单跑腿需求";
+  return "当前筛选下暂无跑腿需求";
 }
 
 Page({
@@ -59,6 +79,7 @@ Page({
     },
     loading: false,
     error: "",
+    emptyText: getEmptyText(),
     focusId: ""
   },
 
@@ -95,6 +116,7 @@ Page({
       tasks,
       selectedTask,
       stats: getStats(this.data.rawTasks),
+      emptyText: getEmptyText(this.data.activeStatus),
       focusId: ""
     });
   },

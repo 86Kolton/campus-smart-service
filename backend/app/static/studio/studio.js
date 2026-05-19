@@ -120,6 +120,8 @@
     }
   };
 
+  const isTokenInvalidError = (error) => /(^|\s)401:\s*(token_invalid|client_token_invalid|client_token_required|client_token_revoked)\b/.test(String(error?.message || error || ""));
+
   const logout = (notify = true) => {
     state.token = "";
     localStorage.removeItem(TOKEN_KEY);
@@ -161,6 +163,11 @@
     }
     localStorage.setItem(CLIENT_TOKEN_KEY, state.clientToken);
     return state.clientToken;
+  };
+
+  const resetClientDebugToken = () => {
+    state.clientToken = "";
+    localStorage.removeItem(CLIENT_TOKEN_KEY);
   };
 
   const setActiveScreen = (screen, { updateHash = true } = {}) => {
@@ -729,13 +736,24 @@
   const askDebug = async () => {
     const query = String(byId("qaQuestion")?.value || "").trim();
     if (!query) throw new Error("请输入测试问题");
-    const token = await clientLogin();
-    const payload = await api("/api/client/knowledge/ask", {
-      method: "POST",
-      auth: false,
-      headers: { Authorization: `Bearer ${token}` },
-      body: { query, history: [], deep_thinking: false },
-    });
+    const request = async () => {
+      const token = await clientLogin();
+      return api("/api/client/knowledge/ask", {
+        method: "POST",
+        auth: false,
+        headers: { Authorization: `Bearer ${token}` },
+        body: { query, history: [], deep_thinking: false },
+      });
+    };
+    let payload;
+    try {
+      payload = await request();
+    } catch (error) {
+      if (!isTokenInvalidError(error)) throw error;
+      resetClientDebugToken();
+      log("客户端调试 token 已失效，已自动刷新后重试。");
+      payload = await request();
+    }
     if (byId("qaResult")) byId("qaResult").textContent = JSON.stringify(payload, null, 2);
     log("问答调试请求成功", "ok");
     await loadLogs();
