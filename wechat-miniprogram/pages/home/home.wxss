@@ -255,11 +255,6 @@
   white-space: normal;
 }
 
-.post-badge.adopted {
-  color: #196d4c;
-  background: rgba(227, 245, 238, 0.98);
-}
-
 .post-badge.knowledge {
   color: var(--brand-primary);
   background: rgba(229, 238, 251, 0.98);

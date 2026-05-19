@@ -94,10 +94,8 @@ function normalizeFeedItem(item = {}, index = 0) {
     ? "AI已采纳"
     : duplicateRejected
       ? "同主题已入库"
-      : adopted
-        ? "楼主采纳评论"
-        : "";
-  const statusBadgeTone = knowledgeReady ? "knowledge" : duplicateRejected ? "synced" : adopted ? "adopted" : "";
+      : "";
+  const statusBadgeTone = knowledgeReady ? "knowledge" : duplicateRejected ? "synced" : "";
   return {
     id: canonicalId,
     rawId: String(item.id || canonicalId),

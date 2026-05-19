@@ -2782,9 +2782,6 @@ function getPostStatusBadge(post) {
   if (isDuplicateReviewReason(post.knowledgeReviewReason)) {
     return { tone: 'synced', text: '同主题已入库' };
   }
-  if (post.adopted) {
-    return { tone: 'adopted', text: '楼主采纳评论' };
-  }
   return null;
 }
 
@@ -2805,15 +2802,8 @@ function renderFeed() {
   }
 
   posts.forEach((post) => {
-    const badgeItems = [];
-    if (post.knowledgeReady) {
-      badgeItems.push('<span class="post-badge knowledge">AI已采纳</span>');
-    } else if (post.adopted) {
-      badgeItems.push('<span class="post-badge adopted">楼主已采纳</span>');
-    }
-    const legacyBadges = badgeItems.join('');
     const badge = getPostStatusBadge(post);
-    const badges = badge ? `<span class="post-badge ${badge.tone}">${escapeHtml(badge.text)}</span>` : legacyBadges;
+    const badges = badge ? `<span class="post-badge ${badge.tone}">${escapeHtml(badge.text)}</span>` : '';
 
     const postNode = document.createElement('article');
     postNode.className = 'card post-card is-clickable';

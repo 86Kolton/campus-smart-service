@@ -658,11 +658,6 @@ textarea {
   padding: 3px 8px;
 }
 
-.post-badge.adopted {
-  color: #196f4d;
-  background: #e4f6ef;
-}
-
 .post-badge.knowledge {
   color: #274f79;
   background: #e5eefb;
