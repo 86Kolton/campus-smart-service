@@ -4,7 +4,7 @@ pydantic==2.11.3
 pydantic-settings==2.8.1
 sqlalchemy==2.0.40
 psycopg2-binary==2.9.10
-alembic==1.15.2
+alembic==1.18.4
 redis==5.2.1
 celery==5.4.0
 qdrant-client==1.13.3
